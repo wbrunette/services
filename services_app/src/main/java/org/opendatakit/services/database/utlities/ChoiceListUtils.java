@@ -17,15 +17,15 @@ package org.opendatakit.services.database.utlities;
 
 import android.database.Cursor;
 import org.opendatakit.database.DatabaseConstants;
-import org.opendatakit.services.database.OdkConnectionInterface;
 import org.opendatakit.provider.ChoiceListColumns;
+import org.opendatakit.services.database.OdkConnectionInterface;
 
 import java.util.ArrayList;
 
 /**
  * Manipulator class for setting and getting choiceList definitions.
  */
-public class ChoiceListUtils {
+public final class ChoiceListUtils {
 
   /**
    * For ease of mocking...
@@ -38,7 +38,7 @@ public class ChoiceListUtils {
    * @param choiceListId
    * @return
    */
-  public String getChoiceList(OdkConnectionInterface db, String choiceListId) {
+  public static String getChoiceList(OdkConnectionInterface db, String choiceListId) {
 
     if ( choiceListId == null || choiceListId.trim().length() == 0 ) {
       return null;
