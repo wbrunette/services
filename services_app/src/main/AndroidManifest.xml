@@ -10,157 +10,115 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
-    <permission-group android:description="@string/services_permissions_description"
-                      android:icon="@drawable/odk_services"
-                      android:label="@string/services_permission_tree"
-                      android:name="org.opendatakit.services.permissions" />
-
-    <permission-tree
-        android:icon="@drawable/odk_services"
-                     android:label="@string/services_permission_tree"
-                     android:name="org.opendatakit.sync" />
-
-    <permission-tree
-        android:icon="@drawable/odk_services"
-                     android:label="@string/services_permission_tree"
-                     android:name="org.opendatakit.database" />
-
-    <permission-tree
-        android:icon="@drawable/odk_services"
-                     android:label="@string/services_permission_tree"
-                     android:name="org.opendatakit.webkitserver" />
-    
-    <permission android:name="org.opendatakit.webkitserver.RUN_WEBSERVER"
-                android:label="@string/webkit_launch_permission"
-                android:permissionGroup="org.opendatakit.services.permissions"
-                android:protectionLevel="signature"></permission>
-    
-    <permission android:name="org.opendatakit.database.RUN_DATABASE"
-                android:label="@string/database_launch_permission"
-                android:permissionGroup="org.opendatakit.services.permissions"
-                android:protectionLevel="signature"></permission>
-
-    <permission android:name="org.opendatakit.sync.RUN_SYNC"
-                android:label="@string/sync_launch_permission"
-                android:permissionGroup="org.opendatakit.services.permissions"
-                android:protectionLevel="signature"></permission>
 
     <application
-        android:name="org.opendatakit.services.application.Services"
         android:usesCleartextTraffic="true"
-        android:allowBackup="true"
         android:largeHeap="true"
         android:supportsRtl="true"
         android:installLocation="auto"
-        android:icon="@drawable/odk_services"
-        android:logo="@drawable/odk_services"
-        android:label="@string/app_name"
         android:theme="@style/Opendatakit" >
-        <service android:name=".webkitservice.service.OdkWebkitServerService"
-            android:exported="true"
-            android:process=":webkitservice"
-            android:permission="org.opendatakit.webkitserver.RUN_WEBSERVER" >
+        <service android:name="org.opendatakit.services.webkitservice.service.OdkWebkitServerService"
+            android:exported="false"
+            android:process=":webkitservice">
         </service>
-        <service android:name=".database.service.OdkDatabaseService"
-            android:exported="true"
-            android:process=":databaseservice"
-            android:permission="org.opendatakit.database.RUN_DATABASE" >
+        <service android:name="org.opendatakit.services.database.service.OdkDatabaseService"
+            android:exported="false"
+            android:process=":databaseservice">
         </service>
-        <service android:name=".sync.service.OdkSyncService"
-             android:exported="true"
-             android:process=":sync"
-             android:permission="org.opendatakit.sync.RUN_SYNC" >
+        <service android:name="org.opendatakit.services.sync.service.OdkSyncService"
+             android:exported="false"
+             android:process=":sync">
         </service>
-        <service android:name=".sync.service.ClearSuccessfulSyncService"
+        <service android:name="org.opendatakit.services.sync.service.ClearSuccessfulSyncService"
                  android:exported="false">
         </service>
         <provider
-            android:exported="true"
+            android:exported="false"
 	        android:syncable="false"
 	        android:initOrder="1"
             android:process=":providers"
             android:authorities="org.opendatakit.provider.tables"
-            android:name=".tables.provider.TablesProvider" />
+            android:name="org.opendatakit.services.tables.provider.TablesProvider" />
         <provider
-            android:exported="true"
+            android:exported="false"
 	        android:syncable="false"
 	        android:initOrder="2"
             android:process=":providers"
             android:authorities="org.opendatakit.provider.forms"
-            android:name=".forms.provider.FormsProvider" />
+            android:name="org.opendatakit.services.forms.provider.FormsProvider" />
         <provider
-            android:exported="true"
+            android:exported="false"
 	        android:syncable="false"
 	        android:initOrder="3"
             android:process=":providers"
             android:authorities="org.opendatakit.provider.instances"
-            android:name=".instance.provider.InstanceProvider" />
+            android:name="org.opendatakit.services.instance.provider.InstanceProvider" />
         <provider
-            android:exported="true"
+            android:exported="false"
 	        android:syncable="false"
 	        android:initOrder="4"
             android:process=":providers"
             android:authorities="org.opendatakit.provider.submission.xml;org.opendatakit.provider.submission.json"
-            android:name=".submissions.provider.SubmissionProvider"
+            android:name="org.opendatakit.services.submissions.provider.SubmissionProvider"
             />
         <activity
-            android:name=".MainActivity"
+            android:name="org.opendatakit.services.MainActivity"
             android:label="@string/app_name" >
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".resolve.checkpoint.CheckpointResolutionActivity">
+        <activity android:name="org.opendatakit.services.resolve.checkpoint.CheckpointResolutionActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".resolve.conflict.ConflictResolutionActivity">
+        <activity android:name="org.opendatakit.services.resolve.conflict.ConflictResolutionActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".resolve.conflict.AllConflictsResolutionActivity">
+        <activity android:name="org.opendatakit.services.resolve.conflict.AllConflictsResolutionActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".sync.actions.activities.SyncActivity">
+        <activity android:name="org.opendatakit.services.sync.actions.activities.SyncActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".sync.actions.activities.LoginActivity">
+        <activity android:name="org.opendatakit.services.sync.actions.activities.LoginActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".sync.actions.activities.VerifyServerSettingsActivity">
+        <activity android:name="org.opendatakit.services.sync.actions.activities.VerifyServerSettingsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".preferences.activities.AppPropertiesActivity">
+        <activity android:name="org.opendatakit.services.preferences.activities.AppPropertiesActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <activity
-                android:name=".preferences.activities.ClearAppPropertiesActivity">
+                android:name="org.opendatakit.services.preferences.activities.ClearAppPropertiesActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity android:name=".preferences.activities.DocumentationWebViewActivity">
+        <activity android:name="org.opendatakit.services.preferences.activities.DocumentationWebViewActivity">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />

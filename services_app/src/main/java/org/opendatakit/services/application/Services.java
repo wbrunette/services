@@ -22,22 +22,16 @@ import android.util.Log;
 
 import androidx.multidex.MultiDexApplication;
 
-import com.crashlytics.android.Crashlytics;
-import com.google.firebase.analytics.FirebaseAnalytics;
-
 import org.opendatakit.application.IToolAware;
 import org.opendatakit.logging.WebLogger;
 import org.opendatakit.services.R;
 
 import java.lang.ref.WeakReference;
 
-import io.fabric.sdk.android.Fabric;
-
 public final class Services extends MultiDexApplication implements IToolAware {
 
   private static final String t = Services.class.getSimpleName();
 
-  private FirebaseAnalytics analytics;
   private static WeakReference<Services> singleton = null;
 
   @Override public int getApkDisplayNameResourceId() {
@@ -49,9 +43,6 @@ public final class Services extends MultiDexApplication implements IToolAware {
     if (singleton == null) singleton = new WeakReference<>(this);
     super.onCreate();
 
-    Fabric.with(this, new Crashlytics());
-    analytics = FirebaseAnalytics.getInstance(this);
-    analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null);
   }
 
   @Override

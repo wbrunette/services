@@ -12,8 +12,7 @@ applicationScripts.each {
     apply from: it
 }
 
-apply plugin: 'com.android.application'
-apply plugin: 'io.fabric'
+apply plugin: 'com.android.library'
 
 android {
     // The following are set in the common.gradle file
@@ -21,13 +20,11 @@ android {
     buildToolsVersion(buildTools)
 
     defaultConfig {
-        applicationId(groupId + servicesName)
         minSdkVersion(minVersion)
         targetSdkVersion(targetVersion)
         versionCode(releaseVersionCode)
         versionName(versionCodeName)
         testInstrumentationRunner(instrumentationRunner)
-        multiDexEnabled true
     }
 
     flavorDimensions "stage", "testing"
@@ -115,16 +112,12 @@ allprojects {
 }
 
 dependencies {
-    implementation fileTree(include: '*.jar', dir: 'libs')
+    api fileTree(include: '*.jar', dir: 'libs')
     implementation 'androidx.annotation:annotation:1.1.0'
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation 'androidx.appcompat:appcompat:1.1.0'
     implementation 'androidx.preference:preference:1.1.0'
     implementation 'androidx.fragment:fragment:1.2.0-alpha04'
-    implementation 'com.google.firebase:firebase-core:17.2.0'
-    implementation('com.crashlytics.sdk.android:crashlytics:2.10.1@aar') {
-        transitive = true;
-    }
 
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'androidx.lifecycle:lifecycle-extensions:2.1.0'
@@ -132,16 +125,7 @@ dependencies {
     implementation group: 'com.google.zxing', name: 'core', version: '3.3.0'
     implementation group: 'com.journeyapps', name: 'zxing-android-embedded', version: '3.5.0'
 
-    if (libraryProjectPath.exists() && gradle.useLocal) { // Local project is favoured
-        implementation project(libraryProjectName)
-    } else {
-        demoImplementation(group: groupId, name: libraryDemoArtifactName, classifier: demoRelease,
-                version: latestVersion, ext: 'aar')
-        masterImplementation(group: groupId, name: libraryMasterArtifactName, classifier: masterRelease,
-                version: masterArtifactVersion, ext: 'aar')
-        snapshotImplementation(group: groupId, name: librarySnapshotArtifactName,
-                classifier: snapshotRelease, version: latestVersion, ext: 'aar')
-    }
+    api project(commonProjectName)
 
     // Testing-only dependencies
     androidTestImplementation 'androidx.test:runner:1.2.0'
@@ -157,6 +141,4 @@ task grantPermissionForODKApp {
     dependsOn grantServicesReadExternalStoragePermission
     dependsOn grantServicesWriteExternalStoragePermission
 }
-
-apply plugin: 'com.google.gms.google-services'
 
