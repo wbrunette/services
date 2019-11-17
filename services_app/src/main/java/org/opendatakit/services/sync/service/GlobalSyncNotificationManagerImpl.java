@@ -127,7 +127,7 @@ public final class GlobalSyncNotificationManagerImpl implements GlobalSyncNotifi
     // The intent to launch when the user clicks the expanded notification
     // Intent tmpIntent = new Intent(service, SyncActivity.class);
     Intent tmpIntent = new Intent(Intent.ACTION_VIEW);
-    tmpIntent.setClassName("org.opendatakit.sync", "org.opendatakit.services.sync.actions.activities.SyncActivity");
+    tmpIntent.setClassName("org.opendatakit.tables", "org.opendatakit.services.sync.actions.activities.SyncActivity");
     tmpIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     PendingIntent pendIntent = PendingIntent.getActivity(service.getApplicationContext(), 0,
         tmpIntent, 0);
