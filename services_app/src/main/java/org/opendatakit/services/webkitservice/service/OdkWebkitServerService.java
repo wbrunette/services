@@ -17,9 +17,11 @@ package org.opendatakit.services.webkitservice.service;
 
 import android.app.Service;
 import android.content.Intent;
+import android.os.Build;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
+import android.webkit.WebView;
 
 import org.opendatakit.consts.WebkitServerConsts;
 import org.opendatakit.utilities.ODKFileUtils;
@@ -50,6 +52,12 @@ public class OdkWebkitServerService extends Service {
   @Override
   public void onCreate() {
     super.onCreate();
+
+    if(android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      WebView.disableWebView();
+      WebView.setDataDirectorySuffix("webserver_service");
+    }
+
     servInterface = new WebkitServiceInterface();
 
     webServer = new Thread(null, new Runnable() {
@@ -73,6 +81,7 @@ public class OdkWebkitServerService extends Service {
       }
     }, "WebServer");
     webServer.start();
+
   }
 
   @Override

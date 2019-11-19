@@ -16,8 +16,10 @@ package org.opendatakit.services.database.service;
 
 import android.app.Service;
 import android.content.Intent;
+import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
+import android.webkit.WebView;
 
 import org.opendatakit.database.service.DbChunk;
 import org.opendatakit.logging.WebLogger;
@@ -55,6 +57,10 @@ public final class OdkDatabaseService extends Service {
     parceledChunks = new HashMap<>();
     servInterface = new OdkDatabaseServiceInterface(this);
     AndroidConnectFactory.configure();
+    if(android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      WebView.disableWebView();
+      WebView.setDataDirectorySuffix("db_service");
+    }
   }
 
   @Override

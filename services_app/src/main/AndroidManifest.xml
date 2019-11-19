@@ -36,28 +36,24 @@
             android:exported="false"
 	        android:syncable="false"
 	        android:initOrder="1"
-            android:process=":providers"
             android:authorities="org.opendatakit.provider.tables"
             android:name="org.opendatakit.services.tables.provider.TablesProvider" />
         <provider
             android:exported="false"
 	        android:syncable="false"
 	        android:initOrder="2"
-            android:process=":providers"
             android:authorities="org.opendatakit.provider.forms"
             android:name="org.opendatakit.services.forms.provider.FormsProvider" />
         <provider
             android:exported="false"
 	        android:syncable="false"
 	        android:initOrder="3"
-            android:process=":providers"
             android:authorities="org.opendatakit.provider.instances"
             android:name="org.opendatakit.services.instance.provider.InstanceProvider" />
         <provider
             android:exported="false"
 	        android:syncable="false"
 	        android:initOrder="4"
-            android:process=":providers"
             android:authorities="org.opendatakit.provider.submission.xml;org.opendatakit.provider.submission.json"
             android:name="org.opendatakit.services.submissions.provider.SubmissionProvider"
             />

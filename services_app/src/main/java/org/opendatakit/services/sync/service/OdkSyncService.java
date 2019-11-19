@@ -17,7 +17,9 @@ package org.opendatakit.services.sync.service;
 
 import android.app.Service;
 import android.content.Intent;
+import android.os.Build;
 import android.os.IBinder;
+import android.webkit.WebView;
 
 import org.opendatakit.application.IToolAware;
 import org.opendatakit.consts.IntentConsts;
@@ -140,6 +142,11 @@ public class OdkSyncService extends Service {
     serviceInterface = new IOdkSyncServiceInterfaceImpl(this);
     notificationManager = new GlobalSyncNotificationManagerImpl(this);
     shutdownTester = Executors.newSingleThreadScheduledExecutor();
+
+    if(android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      WebView.disableWebView();
+      WebView.setDataDirectorySuffix("sync_service");
+    }
   }
 
   @Override
