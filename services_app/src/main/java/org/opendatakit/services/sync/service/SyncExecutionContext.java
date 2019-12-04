@@ -97,7 +97,7 @@ public class SyncExecutionContext implements SynchronizerStatus {
     this.application = context;
     this.appName = appName;
     this.versionCode = versionCode;
-    this.odkClientApiVersion = versionCode.substring(0, versionCode.length() - 2);
+    this.odkClientApiVersion = "2";
     this.userAgent = "Sync " + versionCode + " (gzip)";
     this.syncProgressTracker = syncProgressTracker;
     this.synchronizer = null;
