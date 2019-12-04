@@ -377,8 +377,8 @@ public class ProcessAppAndTableLevelChanges {
       sc.setAppLevelSyncOutcome(SyncOutcome.SUCCESS);
     } catch (Exception e) {
       // TODO: update a synchronization result to report back to them as well.
-      android.os.Debug.waitForDebugger();
-     e.printStackTrace();
+      
+      e.printStackTrace();
       log.e(TAG, e.getMessage());
       log.e(TAG,
           "[synchronizeConfigurationAndContent] exception while trying to synchronize app-level files.");
