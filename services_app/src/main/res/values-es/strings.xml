@@ -264,7 +264,7 @@
     <string name="username">Nombre de usuario</string>
     <string name="change_username">ODK-X Nombre de usuario</string>
     <string name="password">Contraseña del servidor</string>
-    <string name="change_server_password">Llame de paso</string>
+    <string name="change_server_password">Contraseña del servidor</string>
     <string name="no_account">Sin cuenta</string>
     <string name="anonymous">Ninguno (acceso anonimo)</string>
     <string name="credential_type_prefix">Credenciales: </string>
