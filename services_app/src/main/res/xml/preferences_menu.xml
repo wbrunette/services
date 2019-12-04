@@ -72,7 +72,7 @@
 
         <intent
             android:action="android.intent.action.EDIT"
-            android:targetPackage="org.opendatakit.services"
+            android:targetPackage="org.opendatakit.tables"
             android:targetClass="org.opendatakit.services.preferences.activities.ClearAppPropertiesActivity" />
     </PreferenceScreen>
 
@@ -85,7 +85,7 @@
 
         <intent
             android:action="android.intent.action.EDIT"
-            android:targetPackage="org.opendatakit.services"
+            android:targetPackage="org.opendatakit.tables"
             android:targetClass="org.opendatakit.services.sync.actions.activities.VerifyServerSettingsActivity" />
     </PreferenceScreen>
 </PreferenceScreen>

@@ -44,11 +44,11 @@ import org.opendatakit.services.sync.actions.activities.VerifyServerSettingsActi
 import org.opendatakit.utilities.ODKFileUtils;
 import org.opendatakit.utilities.RuntimePermissionUtils;
 
-public class MainActivity extends AppCompatActivity implements IAppAwareActivity,
+public class MainActivityServices extends AppCompatActivity implements IAppAwareActivity,
     ActivityCompat.OnRequestPermissionsResultCallback {
 
   // Used for logging
-  @SuppressWarnings("unused") private static final String TAG = MainActivity.class.getSimpleName();
+  @SuppressWarnings("unused") private static final String TAG = MainActivityServices.class.getSimpleName();
 
   private static final int EXT_STORAGE_REQ_CODE = 0;
 

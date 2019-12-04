@@ -58,7 +58,7 @@
             android:name="org.opendatakit.services.submissions.provider.SubmissionProvider"
             />
         <activity
-            android:name="org.opendatakit.services.MainActivity"
+            android:name="org.opendatakit.services.MainActivityServices"
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
