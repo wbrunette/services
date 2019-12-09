@@ -237,7 +237,7 @@
     <string name="enter_new_user">Ingrese nuevo nombre de usuario:</string>
     <string name="enter_new_password">Ingrese la nueva contraseña:</string>
     <string name="verify_new_password">Re-Ingrese la nueva contraseña</string>
-    <string name="password_changed">La Contraseñam ha sido cambiada con éxito</string>
+    <string name="password_changed">La Contraseña ha sido cambiada con éxito</string>
     <string name="admin_password_disabled">Contraseña de administrador deshabilitada</string>
     <string name="admin_password_enabled">Contraseña de administrador habilitada</string>
     <string name="password_mismatch">Lo sentimos, ¡las contraseñas no coinciden!</string>
