@@ -21,8 +21,13 @@
 package org.sqlite.database.sqlite;
 
 import android.content.ContentResolver;
-
-import android.database.*;
+import android.database.CharArrayBuffer;
+import android.database.ContentObservable;
+import android.database.ContentObserver;
+import android.database.Cursor;
+import android.database.CursorIndexOutOfBoundsException;
+import android.database.DataSetObservable;
+import android.database.DataSetObserver;
 import android.net.Uri;
 import android.os.Bundle;
 
@@ -37,12 +42,12 @@ public class SQLiteMemoryCursor implements Cursor {
 
   private static final String TAG = "SQLiteMemoryCursor";
   
-    private static final char NULL_TYPE = 'n';
-    private static final char STRING_TYPE = 's';
-    private static final char LONG_TYPE = 'l';
-    private static final char DOUBLE_TYPE = 'd';
-    private static final char BYTEARRAY_TYPE = 'b';
-    private static final char OBJECT_TYPE = 'o';
+    static final char NULL_TYPE = 'n';
+    static final char STRING_TYPE = 's';
+    static final char LONG_TYPE = 'l';
+    static final char DOUBLE_TYPE = 'd';
+    static final char BYTEARRAY_TYPE = 'b';
+    static final char OBJECT_TYPE = 'o';
     private static final String[] NO_COLUMNS = new String[0];
 
     private Object[] sqliteContent;

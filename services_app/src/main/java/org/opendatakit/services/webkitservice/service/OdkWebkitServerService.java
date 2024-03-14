@@ -23,7 +23,7 @@ import android.util.Log;
 
 import org.opendatakit.consts.WebkitServerConsts;
 import org.opendatakit.utilities.ODKFileUtils;
-import org.opendatakit.webkitserver.service.WebkitServerInterface;
+import org.opendatakit.webkitserver.service.IWebkitServerInterface;
 
 import java.io.File;
 import java.io.IOException;
@@ -122,7 +122,7 @@ public class OdkWebkitServerService extends Service {
     }
   }
 
-  private class WebkitServiceInterface extends WebkitServerInterface.Stub {
+  private class WebkitServiceInterface extends IWebkitServerInterface.Stub {
 
     @Override
     public boolean restart() throws RemoteException {

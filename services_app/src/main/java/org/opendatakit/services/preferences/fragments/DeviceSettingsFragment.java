@@ -16,30 +16,38 @@ package org.opendatakit.services.preferences.fragments;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.LoaderManager;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.preference.*;
-import android.preference.Preference.OnPreferenceChangeListener;
 import android.provider.MediaStore;
 import android.widget.Toast;
+
+import androidx.loader.app.LoaderManager;
+import androidx.preference.CheckBoxPreference;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.Preference.OnPreferenceChangeListener;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceScreen;
+
+import org.opendatakit.activities.IAppAwareActivity;
 import org.opendatakit.consts.IntentConsts;
-import org.opendatakit.services.preferences.activities.AppPropertiesActivity;
-import org.opendatakit.services.preferences.activities.IOdkAppPropertiesActivity;
+import org.opendatakit.logging.WebLogger;
 import org.opendatakit.properties.CommonToolProperties;
 import org.opendatakit.properties.PropertiesSingleton;
+import org.opendatakit.services.R;
+import org.opendatakit.services.preferences.activities.AppPropertiesActivity;
+import org.opendatakit.services.preferences.activities.IOdkAppPropertiesActivity;
 import org.opendatakit.utilities.MediaUtils;
 import org.opendatakit.utilities.ODKFileUtils;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.services.R;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 
-public class DeviceSettingsFragment extends PreferenceFragment implements
+public class DeviceSettingsFragment extends PreferenceFragmentCompat implements
     OnPreferenceChangeListener {
 
   private static final String t = "DeviceSettingsFragment";
@@ -54,17 +62,20 @@ public class DeviceSettingsFragment extends PreferenceFragment implements
   private PreferenceScreen mSplashPathPreference;
 
   @Override
+  public void onCreatePreferences(Bundle savedInstanceState, String rootKey)  {
+    setPreferencesFromResource(R.xml.device_preferences, rootKey);
+  }
+
+  @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
 
-    mAppName = this.getActivity().getIntent().getStringExtra(IntentConsts.INTENT_KEY_APP_NAME);
+    mAppName = ((IAppAwareActivity) requireActivity()).getAppName();
     if (mAppName == null || mAppName.length() == 0) {
       mAppName = ODKFileUtils.getOdkDefaultAppName();
     }
 
     PropertiesSingleton props = CommonToolProperties.get(this.getActivity(), mAppName);
-
-    addPreferencesFromResource(R.xml.device_preferences);
 
     // not super safe, but we're just putting in this mode to help
     // administrate
@@ -83,7 +94,7 @@ public class DeviceSettingsFragment extends PreferenceFragment implements
     mDefaultTranslationPreference = (CommonTranslationsLocaleScreen) findPreference(CommonToolProperties.KEY_COMMON_TRANSLATIONS_LOCALE);
     final Bundle b = new Bundle();
     b.putString(IntentConsts.INTENT_KEY_APP_NAME, mAppName);
-    this.getLoaderManager().initLoader(LOADER_ID, b, mDefaultTranslationPreference.getLoaderCallback());
+    LoaderManager.getInstance(this).initLoader(LOADER_ID, b, mDefaultTranslationPreference.getLoaderCallback());
 
     mDefaultTranslationPreference.setOnPreferenceChangeListener(new OnPreferenceChangeListener() {
 
@@ -104,7 +115,7 @@ public class DeviceSettingsFragment extends PreferenceFragment implements
               .KEY_COMMON_TRANSLATIONS_LOCALE, stringValue));
         }
         // since the selection changed, we need to change the languages on the tags
-        DeviceSettingsFragment.this.getLoaderManager().restartLoader(LOADER_ID, b,
+        LoaderManager.getInstance(DeviceSettingsFragment.this).restartLoader(LOADER_ID, b,
             mDefaultTranslationPreference.getLoaderCallback());
         return true;
       }
@@ -149,7 +160,7 @@ public class DeviceSettingsFragment extends PreferenceFragment implements
     boolean splashAvailable =  !adminConfigured ||
         props.getBooleanProperty(CommonToolProperties.KEY_CHANGE_SPLASH_SETTINGS);
 
-    mShowSplashPreference = (CheckBoxPreference) findPreference(CommonToolProperties.KEY_SHOW_SPLASH);
+    mShowSplashPreference = findPreference(CommonToolProperties.KEY_SHOW_SPLASH);
     if (props.containsKey(CommonToolProperties.KEY_SHOW_SPLASH)) {
       boolean checked = props.getBooleanProperty(CommonToolProperties.KEY_SHOW_SPLASH);
       mShowSplashPreference.setChecked(checked);
@@ -169,7 +180,7 @@ public class DeviceSettingsFragment extends PreferenceFragment implements
     mShowSplashPreference.setEnabled(adminMode || splashAvailable);
 
 
-    mSplashPathPreference = (PreferenceScreen) findPreference(CommonToolProperties.KEY_SPLASH_PATH);
+    mSplashPathPreference = findPreference(CommonToolProperties.KEY_SPLASH_PATH);
     if (props.containsKey(CommonToolProperties.KEY_SPLASH_PATH)) {
       mSplashPathPreference.setSummary(props.getProperty(CommonToolProperties.KEY_SPLASH_PATH));
     }

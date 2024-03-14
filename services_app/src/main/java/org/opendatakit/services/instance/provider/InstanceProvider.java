@@ -21,28 +21,29 @@ import android.database.Cursor;
 import android.database.DataSetObserver;
 import android.database.SQLException;
 import android.net.Uri;
-import android.support.annotation.NonNull;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import org.opendatakit.aggregate.odktables.rest.KeyValueStoreConstants;
 import org.opendatakit.aggregate.odktables.rest.TableConstants;
 import org.opendatakit.androidlibrary.R;
+import org.opendatakit.database.DatabaseConstants;
 import org.opendatakit.database.data.ColumnDefinition;
 import org.opendatakit.database.data.OrderedColumns;
-import org.opendatakit.services.database.AndroidConnectFactory;
-import org.opendatakit.database.DatabaseConstants;
-import org.opendatakit.services.database.OdkConnectionFactorySingleton;
-import org.opendatakit.services.database.OdkConnectionInterface;
+import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.database.utilities.CursorUtils;
+import org.opendatakit.logging.WebLogger;
 import org.opendatakit.provider.DataTableColumns;
 import org.opendatakit.provider.InstanceColumns;
 import org.opendatakit.provider.InstanceProviderAPI;
 import org.opendatakit.provider.KeyValueStoreColumns;
-import org.opendatakit.database.utilities.CursorUtils;
-import org.opendatakit.services.database.utlities.ODKDatabaseImplUtils;
+import org.opendatakit.services.database.AndroidConnectFactory;
+import org.opendatakit.services.database.OdkConnectionFactorySingleton;
+import org.opendatakit.services.database.OdkConnectionInterface;
+import org.opendatakit.services.database.utilities.ODKDatabaseImplUtils;
 import org.opendatakit.services.utilities.ActiveUserAndLocale;
 import org.opendatakit.utilities.ODKFileUtils;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.database.service.DbHandle;
 
 import java.io.File;
 import java.io.IOException;
@@ -703,7 +704,7 @@ public class InstanceProvider extends ContentProvider {
       if (cv.containsKey(InstanceColumns.XML_PUBLISH_STATUS)) {
         Date xmlPublishDate = new Date();
         cv.put(InstanceColumns.XML_PUBLISH_TIMESTAMP,
-            TableConstants.nanoSecondsFromMillis(xmlPublishDate.getTime()));
+            TableConstants.nanoSecondsFromMillis(xmlPublishDate.getTime(), Locale.ROOT));
         String xmlPublishStatus = cv.getAsString(InstanceColumns.XML_PUBLISH_STATUS);
         if (!cv.containsKey(InstanceColumns.DISPLAY_SUBTEXT)) {
           String text = getDisplaySubtext(xmlPublishStatus, xmlPublishDate);

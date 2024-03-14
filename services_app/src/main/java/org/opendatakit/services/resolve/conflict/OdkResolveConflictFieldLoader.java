@@ -15,32 +15,33 @@
  */
 package org.opendatakit.services.resolve.conflict;
 
-import android.content.AsyncTaskLoader;
 import android.content.Context;
 
-import org.opendatakit.database.RoleConsts;
+import androidx.loader.content.AsyncTaskLoader;
+
 import org.opendatakit.aggregate.odktables.rest.ConflictType;
 import org.opendatakit.aggregate.odktables.rest.ElementType;
 import org.opendatakit.aggregate.odktables.rest.KeyValueStoreConstants;
+import org.opendatakit.database.RoleConsts;
+import org.opendatakit.database.data.BaseTable;
 import org.opendatakit.database.data.ColumnDefinition;
+import org.opendatakit.database.data.KeyValueStoreEntry;
 import org.opendatakit.database.data.OrderedColumns;
+import org.opendatakit.database.data.TypedRow;
 import org.opendatakit.database.data.UserTable;
+import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.database.utilities.QueryUtil;
+import org.opendatakit.logging.WebLogger;
+import org.opendatakit.provider.DataTableColumns;
 import org.opendatakit.services.database.OdkConnectionFactorySingleton;
 import org.opendatakit.services.database.OdkConnectionInterface;
-import org.opendatakit.provider.DataTableColumns;
-import org.opendatakit.services.utilities.ActiveUserAndLocale;
-import org.opendatakit.utilities.NameUtil;
-import org.opendatakit.utilities.LocalizationUtils;
-import org.opendatakit.services.database.utlities.ODKDatabaseImplUtils;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.database.data.KeyValueStoreEntry;
-import org.opendatakit.database.service.DbHandle;
-import org.opendatakit.database.data.Row;
-import org.opendatakit.database.data.BaseTable;
-import org.opendatakit.database.utilities.QueryUtil;
+import org.opendatakit.services.database.utilities.ODKDatabaseImplUtils;
 import org.opendatakit.services.resolve.views.components.ConcordantColumn;
 import org.opendatakit.services.resolve.views.components.ConflictColumn;
 import org.opendatakit.services.resolve.views.components.ResolveActionList;
+import org.opendatakit.services.utilities.ActiveUserAndLocale;
+import org.opendatakit.utilities.LocalizationUtils;
+import org.opendatakit.utilities.NameUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -163,12 +164,13 @@ class OdkResolveConflictFieldLoader extends AsyncTaskLoader<ResolveActionList> {
     // the first row is the localRow, the second is the serverRow.
     int localRowIndex = 0;
     int serverRowIndex = 1;
-    Row localRow = table.getRowAtIndex(localRowIndex);
-    Row serverRow = table.getRowAtIndex(serverRowIndex);
+    TypedRow localRow = table.getRowAtIndex(localRowIndex);
+    TypedRow serverRow = table.getRowAtIndex(serverRowIndex);
 
-    int localConflictType = Integer.parseInt(localRow.getDataByKey(DataTableColumns.CONFLICT_TYPE));
+    int localConflictType = Integer.parseInt(localRow.getRawStringByKey(DataTableColumns
+        .CONFLICT_TYPE));
     int serverConflictType = Integer
-        .parseInt(serverRow.getDataByKey(DataTableColumns.CONFLICT_TYPE));
+        .parseInt(serverRow.getRawStringByKey(DataTableColumns.CONFLICT_TYPE));
     //
     // And now we need to construct up the adapter.
 
@@ -197,9 +199,9 @@ class OdkResolveConflictFieldLoader extends AsyncTaskLoader<ResolveActionList> {
         columnDisplayName = LocalizationUtils.getLocalizedDisplayName(mAppName,
             mTableId, aul.locale, NameUtil.constructSimpleDisplayName(elementKey));
       }
-      String localRawValue = localRow.getDataByKey(elementKey);
+      String localRawValue = localRow.getRawStringByKey(elementKey);
       String localDisplayValue = table.getDisplayTextOfData(localRowIndex, elementType, elementKey);
-      String serverRawValue = serverRow.getDataByKey(elementKey);
+      String serverRawValue = serverRow.getRawStringByKey(elementKey);
       String serverDisplayValue = table
           .getDisplayTextOfData(serverRowIndex, elementType, elementKey);
       if ((localConflictType == ConflictType.LOCAL_DELETED_OLD_VALUES) ||

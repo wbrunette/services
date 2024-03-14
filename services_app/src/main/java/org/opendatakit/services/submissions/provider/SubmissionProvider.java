@@ -20,37 +20,37 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
-import android.support.annotation.NonNull;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 
-import org.apache.commons.lang3.CharEncoding;
-import org.opendatakit.provider.ProviderConsts;
 import org.opendatakit.aggregate.odktables.rest.ElementDataType;
 import org.opendatakit.aggregate.odktables.rest.ElementType;
 import org.opendatakit.aggregate.odktables.rest.KeyValueStoreConstants;
 import org.opendatakit.aggregate.odktables.rest.TableConstants;
+import org.opendatakit.database.DatabaseConstants;
 import org.opendatakit.database.data.ColumnDefinition;
 import org.opendatakit.database.data.OrderedColumns;
-import org.opendatakit.database.DatabaseConstants;
-import org.opendatakit.services.database.OdkConnectionFactorySingleton;
-import org.opendatakit.services.database.OdkConnectionInterface;
+import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.database.utilities.CursorUtils;
+import org.opendatakit.logging.WebLogger;
+import org.opendatakit.logging.WebLoggerIf;
 import org.opendatakit.properties.DynamicPropertiesCallback;
 import org.opendatakit.properties.PropertyManager;
 import org.opendatakit.provider.DataTableColumns;
 import org.opendatakit.provider.KeyValueStoreColumns;
+import org.opendatakit.provider.ProviderConsts;
+import org.opendatakit.services.database.OdkConnectionFactorySingleton;
+import org.opendatakit.services.database.OdkConnectionInterface;
+import org.opendatakit.services.database.utilities.ODKDatabaseImplUtils;
 import org.opendatakit.services.utilities.ActiveUserAndLocale;
 import org.opendatakit.services.utilities.EncryptionUtils;
 import org.opendatakit.services.utilities.EncryptionUtils.EncryptedFormInformation;
 import org.opendatakit.utilities.FileSet;
-import org.opendatakit.database.utilities.CursorUtils;
-import org.opendatakit.services.database.utlities.ODKDatabaseImplUtils;
 import org.opendatakit.utilities.ODKFileUtils;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.logging.WebLoggerIf;
-import org.opendatakit.database.service.DbHandle;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Text;
@@ -61,6 +61,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -384,26 +385,26 @@ public class SubmissionProvider extends ContentProvider {
 
                 logger.i(t, "element type: " + defn.getElementType());
                 if (dataType == ElementDataType.integer) {
-                  Integer value = CursorUtils.getIndexAsType(c, Integer.class, i);
+                  Long value = CursorUtils.getIndexAsType(c, Long.class, i);
                   putElementValue(values, defn, value);
                 } else if (dataType == ElementDataType.number) {
                   Double value = CursorUtils.getIndexAsType(c, Double.class, i);
                   putElementValue(values, defn, value);
                 } else if (dataType == ElementDataType.bool) {
-                  Integer tmp = CursorUtils.getIndexAsType(c, Integer.class, i);
+                  Long tmp = CursorUtils.getIndexAsType(c, Long.class, i);
                   Boolean value = tmp == null ? null : (tmp != 0);
                   putElementValue(values, defn, value);
                 } else if (type.getElementType().equals("date")) {
                   String value = CursorUtils.getIndexAsString(c, i);
                   String jrDatestamp = (value == null) ? null : (new SimpleDateFormat(
                       ISO8601_DATE_ONLY_FORMAT, Locale.US)).format(new Date(TableConstants
-                      .milliSecondsFromNanos(value)));
+                      .milliSecondsFromNanos(value, Locale.ROOT)));
                   putElementValue(values, defn, jrDatestamp);
                 } else if (type.getElementType().equals("dateTime")) {
                   String value = CursorUtils.getIndexAsString(c, i);
                   String jrDatestamp = (value == null) ? null : (new SimpleDateFormat(
                       ISO8601_DATE_FORMAT, Locale.US)).format(new Date(TableConstants
-                      .milliSecondsFromNanos(value)));
+                      .milliSecondsFromNanos(value, Locale.ROOT)));
                   putElementValue(values, defn, jrDatestamp);
                 } else if (type.getElementType().equals("time")) {
                   String value = CursorUtils.getIndexAsString(c, i);
@@ -520,7 +521,7 @@ public class SubmissionProvider extends ContentProvider {
               }
 
               datestamp = (new SimpleDateFormat(ISO8601_DATE_FORMAT, Locale.US))
-                  .format(new Date(TableConstants.milliSecondsFromNanos(savepointTimestamp)));
+                  .format(new Date(TableConstants.milliSecondsFromNanos(savepointTimestamp, Locale.ROOT)));
 
               // For XML, we traverse the map to serialize it
               DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -700,7 +701,7 @@ public class SubmissionProvider extends ContentProvider {
               out.flush();
               out.close();
 
-              b.append(out.toString(CharEncoding.UTF_8));
+              b.append(out.toString(StandardCharsets.UTF_8.name()));
 
               // OK we have the document in the builder (b).
               String doc = b.toString();
@@ -852,7 +853,7 @@ public class SubmissionProvider extends ContentProvider {
     OutputStreamWriter osw = null;
     try {
       os = new FileOutputStream(outputFilePath, false);
-      osw = new OutputStreamWriter(os, CharEncoding.UTF_8);
+      osw = new OutputStreamWriter(os, StandardCharsets.UTF_8);
       osw.write(payload);
       osw.flush();
       osw.close();

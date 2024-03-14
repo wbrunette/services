@@ -15,69 +15,55 @@
  */
 package org.opendatakit.services.sync.actions.activities;
 
-import android.app.Activity;
-import android.app.Fragment;
-import android.app.FragmentManager;
-import android.app.FragmentTransaction;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.ServiceConnection;
-import android.os.Bundle;
-import android.os.IBinder;
-import android.os.RemoteException;
-import android.util.Log;
+import androidx.lifecycle.ViewModelProvider;
 
-import android.view.Menu;
-import android.view.MenuItem;
-import android.widget.Toast;
-import org.opendatakit.consts.IntentConsts;
-import org.opendatakit.activities.IAppAwareActivity;
-import org.opendatakit.services.database.AndroidConnectFactory;
-import org.opendatakit.fragment.AboutMenuFragment;
-import org.opendatakit.properties.CommonToolProperties;
-import org.opendatakit.properties.PropertiesSingleton;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.services.sync.actions.fragments.SyncFragment;
-import org.opendatakit.services.utilities.ODKServicesPropertyUtils;
-import org.opendatakit.services.resolve.conflict.AllConflictsResolutionActivity;
 import org.opendatakit.services.R;
-import org.opendatakit.services.preferences.activities.IOdkAppPropertiesActivity;
-import org.opendatakit.services.preferences.activities.AppPropertiesActivity;
-import org.opendatakit.sync.service.OdkSyncServiceInterface;
+import org.opendatakit.services.sync.actions.viewModels.SyncViewModel;
 
 /**
  * An activity for syncing the local content with the server.
  *
  * @author mitchellsundt@gmail.com
- *
  */
-public class SyncActivity extends SyncBaseActivity {
+public class SyncActivity extends AbsSyncBaseActivity {
 
-  private static final String TAG = SyncActivity.class.getSimpleName();
-
-  @Override
-  protected void onResume() {
-    super.onResume();
-
-    WebLogger.getLogger(getAppName()).i(TAG, "[onResume] getting SyncFragment");
-
-    FragmentManager mgr = getFragmentManager();
-    String newFragmentName;
-    Fragment newFragment;
-
-    // we want the list fragment
-    newFragmentName = SyncFragment.NAME;
-    newFragment = mgr.findFragmentByTag(newFragmentName);
-    if ( newFragment == null ) {
-      newFragment = new SyncFragment();
-      WebLogger.getLogger(getAppName()).i(TAG, "[onResume] creating new SyncFragment");
-      
-      FragmentTransaction trans = mgr.beginTransaction();
-      trans.replace(R.id.sync_activity_view, newFragment, newFragmentName);
-      WebLogger.getLogger(getAppName()).i(TAG, "[onResume] replacing fragment with id " + newFragment.getId());
-      trans.commit();
+    @Override
+    void initializeViewModelAndNavController() {
+        absSyncViewModel = new ViewModelProvider(SyncActivity.this).get(SyncViewModel.class);
+        navController.setGraph(R.navigation.nav_graph_sync);
     }
-  }
 
+    @Override
+    void navigateToHomeFragment() {
+        navController.navigate(R.id.syncFragment);
+    }
+
+    @Override
+    void navigateToAboutFragment() {
+        navController.navigate(R.id.aboutMenuFragmentS);
+    }
+
+    @Override
+    void navigateToUpdateServerSettings() {
+        navController.navigate(R.id.updateServerSettingsFragmentS);
+    }
+
+    @Override
+    boolean isNotLoginActivity() {
+        return true;
+    }
+
+    @Override
+    boolean isCurrentDestinationAboutFragment() {
+        if (navController.getCurrentDestination() == null)
+            return false;
+        return navController.getCurrentDestination().getId() == R.id.aboutMenuFragmentS;
+    }
+
+    @Override
+    boolean isCurrentDestinationUpdateServerSettings() {
+        if (navController.getCurrentDestination() == null)
+            return false;
+        return navController.getCurrentDestination().getId() == R.id.updateServerSettingsFragmentS;
+    }
 }

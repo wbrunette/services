@@ -16,21 +16,24 @@
 package org.opendatakit.services.resolve.checkpoint;
 
 import android.app.Activity;
-import android.app.Fragment;
-import android.app.FragmentManager;
-import android.app.FragmentTransaction;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 
-import org.opendatakit.consts.IntentConsts;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
+
 import org.opendatakit.activities.IAppAwareActivity;
-import org.opendatakit.services.database.AndroidConnectFactory;
+import org.opendatakit.consts.IntentConsts;
 import org.opendatakit.fragment.AboutMenuFragment;
 import org.opendatakit.logging.WebLogger;
 import org.opendatakit.services.R;
+import org.opendatakit.services.database.AndroidConnectFactory;
+import org.opendatakit.services.utilities.GoToAboutFragment;
 
 /**
  * An activity for handling checkpoint conflicts.
@@ -41,7 +44,7 @@ import org.opendatakit.services.R;
  * @author mitchellsundt@gmail.com
  *
  */
-public class CheckpointResolutionActivity extends Activity implements IAppAwareActivity {
+public class CheckpointResolutionActivity extends AppCompatActivity implements IAppAwareActivity {
 
   private static final String TAG = CheckpointResolutionActivity.class.getSimpleName();
 
@@ -83,7 +86,7 @@ public class CheckpointResolutionActivity extends Activity implements IAppAwareA
       return;
     }
 
-    FragmentManager mgr = getFragmentManager();
+    FragmentManager mgr = getSupportFragmentManager();
     String newFragmentName = null;
     Fragment newFragment = null;
     mRowId = getIntent().getStringExtra(IntentConsts.INTENT_KEY_INSTANCE_ID);
@@ -138,16 +141,8 @@ public class CheckpointResolutionActivity extends Activity implements IAppAwareA
     }
     if (id == R.id.action_about) {
 
-      FragmentManager mgr = getFragmentManager();
-      Fragment newFragment = mgr.findFragmentByTag(AboutMenuFragment.NAME);
-      if ( newFragment == null ) {
-        newFragment = new AboutMenuFragment();
-      }
-      FragmentTransaction trans = mgr.beginTransaction();
-      trans.replace(R.id.checkpoint_resolver_activity_view, newFragment, AboutMenuFragment.NAME);
-      trans.addToBackStack(AboutMenuFragment.NAME);
-      trans.commit();
-
+      FragmentManager mgr = getSupportFragmentManager();
+      GoToAboutFragment.GotoAboutFragment(mgr,R.id.checkpoint_resolver_activity_view);
       return true;
     }
     return super.onOptionsItemSelected(item);

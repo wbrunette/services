@@ -18,28 +18,38 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 
 import org.opendatakit.aggregate.odktables.rest.ElementDataType;
 import org.opendatakit.aggregate.odktables.rest.KeyValueStoreConstants;
-import org.opendatakit.aggregate.odktables.rest.entity.*;
+import org.opendatakit.aggregate.odktables.rest.entity.Column;
+import org.opendatakit.aggregate.odktables.rest.entity.PrivilegesInfo;
+import org.opendatakit.aggregate.odktables.rest.entity.TableDefinitionResource;
+import org.opendatakit.aggregate.odktables.rest.entity.TableResource;
+import org.opendatakit.aggregate.odktables.rest.entity.TableResourceList;
+import org.opendatakit.aggregate.odktables.rest.entity.UserInfoList;
+import org.opendatakit.builder.PropertiesFileUtils;
 import org.opendatakit.database.data.ColumnList;
+import org.opendatakit.database.data.KeyValueStoreEntry;
 import org.opendatakit.database.data.OrderedColumns;
 import org.opendatakit.database.data.TableDefinitionEntry;
+import org.opendatakit.database.service.DbHandle;
 import org.opendatakit.exception.ServicesAvailabilityException;
-import org.opendatakit.properties.CommonToolProperties;
-import org.opendatakit.provider.FormsColumns;
-import org.opendatakit.services.sync.service.OdkSyncService;
-import org.opendatakit.services.sync.service.SyncExecutionContext;
-import org.opendatakit.utilities.ODKFileUtils;
-import org.opendatakit.builder.PropertiesFileUtils;
 import org.opendatakit.logging.WebLogger;
 import org.opendatakit.logging.WebLoggerIf;
-import org.opendatakit.database.data.KeyValueStoreEntry;
-import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.properties.CommonToolProperties;
+import org.opendatakit.provider.FormsColumns;
 import org.opendatakit.services.R;
-import org.opendatakit.sync.service.*;
+import org.opendatakit.services.sync.service.SyncExecutionContext;
 import org.opendatakit.services.sync.service.exceptions.SchemaMismatchException;
 import org.opendatakit.services.sync.service.logic.Synchronizer.OnTablePropertiesChanged;
+import org.opendatakit.sync.service.SyncOutcome;
+import org.opendatakit.sync.service.SyncProgressState;
+import org.opendatakit.sync.service.TableLevelResult;
+import org.opendatakit.utilities.ODKFileUtils;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Isolate the app-level and table-level synchronization steps
@@ -98,10 +108,6 @@ public class ProcessAppAndTableLevelChanges {
 
   public void verifyServerConfiguration() throws ServicesAvailabilityException {
     log.i(TAG, "entered verifyServerConfiguration()");
-
-    if (OdkSyncService.possiblyWaitForSyncServiceDebugger()) {
-      log.i(TAG, "running under debugger: verifyServerConfiguration()");
-    }
 
     sc.updateNotification(SyncProgressState.STARTING,
             R.string.sync_verifying_app_name_on_server, null, 0.0, false);
@@ -225,9 +231,6 @@ public class ProcessAppAndTableLevelChanges {
     log.i(TAG, "entered synchronizeConfigurationAndContent()");
 
     boolean issueDeletes = false;
-    if (OdkSyncService.possiblyWaitForSyncServiceDebugger()) {
-      issueDeletes = true;
-    }
 
     /**
      * Verify that the server configuration is good and
@@ -240,15 +243,6 @@ public class ProcessAppAndTableLevelChanges {
     if ( sc.getAppLevelSyncOutcome() != SyncOutcome.WORKING ) {
       return new ArrayList<>();
     }
-
-    // set device properties to cause all ODK tools to re-run their initialization tasks.
-    sc.setAllToolsToReInitialize();
-
-    // Everything was successful-enough to warrant deleting any sync
-    // ETags from syncing to a different server. This ensures that we
-    // only ever have the sync etags from the current server in case
-    // the user is switching servers for some reason.
-    manifestProcessor.deleteAllSyncETagsExceptForCurrentServer();
 
     sc.updateNotification(SyncProgressState.STARTING,
             R.string.sync_retrieving_tables_list_from_server, null, 0.0, false);
@@ -269,6 +263,7 @@ public class ProcessAppAndTableLevelChanges {
           tables.addAll(tableList.getTables());
         }
       } catch (Exception e) {
+        e.printStackTrace();
         log.e(TAG,
             "[synchronizeConfigurationAndContent] exception getting server table list exception: "
                 + e.toString());
@@ -320,6 +315,32 @@ public class ProcessAppAndTableLevelChanges {
       log.e(TAG,
           "[synchronizeConfigurationAndContent] server has no tables -- did you mean to reset the server?");
       return new ArrayList<TableResource>();
+    }
+
+    // Fail if local table schemaETags don't match those on the server
+    if (!pushToServer) {
+      boolean matched = doDeviceTableSchemaETagsMatchServerETags(tables, localTableIds, db);
+      if (!matched) {
+        return new ArrayList<TableResource>();
+      }
+    }
+
+    // Only initialize if app level file manifest or table level file manifest is different from
+    // server
+    boolean initializeTools = true;
+    if (!pushToServer) {
+      initializeTools = shouldInitializeAllTools(tableList, tables);
+    }
+
+    if (initializeTools) {
+      // set device properties to cause all ODK tools to re-run their initialization tasks.
+      sc.setAllToolsToReInitialize();
+
+      // Everything was successful-enough to warrant deleting any sync
+      // ETags from syncing to a different server. This ensures that we
+      // only ever have the sync etags from the current server in case
+      // the user is switching servers for some reason.
+      manifestProcessor.deleteAllSyncETagsExceptForCurrentServer();
     }
 
     // Figure out how many major steps there are to the sync
@@ -377,6 +398,9 @@ public class ProcessAppAndTableLevelChanges {
           "[synchronizeConfigurationAndContent] exception while trying to synchronize app-level files.");
       sc.setAppLevelSyncOutcome(sc.exceptionEquivalentOutcome(e));
       return new ArrayList<TableResource>();
+    } finally {
+      // because the properties files may have changed, signal that they have
+      sc.signalPropertiesChange();
     }
 
     // done with app-level file synchronization
@@ -605,6 +629,63 @@ public class ProcessAppAndTableLevelChanges {
     // be sure we sort them alphabetically...
     Collections.sort(workingListOfTables);
     return workingListOfTables;
+  }
+
+  private boolean doDeviceTableSchemaETagsMatchServerETags(List<TableResource> tables,
+                                                           List<String> localTableIds, DbHandle db)
+      throws ServicesAvailabilityException {
+    try {
+      db = sc.getDatabase();
+      for (TableResource table : tables) {
+        if (localTableIds.contains(table.getTableId())) {
+          TableDefinitionEntry entry = sc.getDatabaseService().getTableDefinitionEntry(
+              sc.getAppName(), db, table.getTableId());
+          if (!table.getSchemaETag().equals(entry.getSchemaETag())) {
+            sc.setAppLevelSyncOutcome(SyncOutcome.TABLE_SCHEMA_COLUMN_DEFINITION_MISMATCH);
+            log.e(TAG,
+                "[synchronizeConfigurationAndContent] schemaETag on server does not match " +
+                    "local table");
+            return false;
+          }
+        }
+      }
+    } catch (Exception e) {
+      sc.setAppLevelSyncOutcome(sc.exceptionEquivalentOutcome(e));
+      log.e(TAG,
+          "[synchronizeConfigurationAndContent] exception getting local table definition" +
+              " entry: " + e.toString());
+      return false;
+    } finally {
+      if (db != null) {
+        sc.releaseDatabase(db);
+      }
+    }
+    return true;
+  }
+
+  private boolean shouldInitializeAllTools(TableResourceList tableList, List<TableResource> tables)
+      throws ServicesAvailabilityException {
+    String appLevelManifest = null;
+    if (tableList != null && tableList.getAppLevelManifestETag() != null) {
+      appLevelManifest = tableList.getAppLevelManifestETag();
+    }
+
+    if (appLevelManifest == null) {
+      return true;
+    } else if (!appLevelManifest.equals(manifestProcessor.getManifestSyncETag(null))) {
+      return true;
+    }
+
+    for (TableResource table : tables) {
+      String tableLevelManifest = table.getTableLevelManifestETag();
+      if (tableLevelManifest == null) {
+        return true;
+      } else if (!tableLevelManifest.equals(
+          manifestProcessor.getManifestSyncETag(table.getTableId()))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

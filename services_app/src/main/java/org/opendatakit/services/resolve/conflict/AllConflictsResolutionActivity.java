@@ -16,12 +16,7 @@
 package org.opendatakit.services.resolve.conflict;
 
 import android.app.Activity;
-import android.app.Fragment;
-import android.app.FragmentManager;
-import android.app.FragmentTransaction;
-import android.app.LoaderManager;
 import android.content.Intent;
-import android.content.Loader;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -29,11 +24,19 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import org.opendatakit.consts.IntentConsts;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.Loader;
+
 import org.opendatakit.activities.IAppAwareActivity;
-import org.opendatakit.services.database.AndroidConnectFactory;
+import org.opendatakit.consts.IntentConsts;
 import org.opendatakit.fragment.AboutMenuFragment;
 import org.opendatakit.services.R;
+import org.opendatakit.services.database.AndroidConnectFactory;
+import org.opendatakit.services.utilities.GoToAboutFragment;
 
 import java.util.ArrayList;
 
@@ -50,7 +53,7 @@ import java.util.ArrayList;
  *
  * @author mitchellsundt@gmail.com
  */
-public class AllConflictsResolutionActivity extends Activity implements IAppAwareActivity,
+public class AllConflictsResolutionActivity extends AppCompatActivity implements IAppAwareActivity,
         LoaderManager.LoaderCallbacks<ArrayList<String>> {
 
     private static final String TAG = AllConflictsResolutionActivity.class.getSimpleName();
@@ -104,7 +107,7 @@ public class AllConflictsResolutionActivity extends Activity implements IAppAwar
         }
         if ( mTableIdList == null ) {
             // TODO: do database call to get this
-            getLoaderManager().initLoader(FETCH_IN_CONFLICT_TABLE_IDS_LOADER, null, this);
+            LoaderManager.getInstance(this).initLoader(FETCH_IN_CONFLICT_TABLE_IDS_LOADER, null, this);
         }
 
         launchResolveConflictsOnFirstTable();
@@ -148,16 +151,8 @@ public class AllConflictsResolutionActivity extends Activity implements IAppAwar
         }
         if (id == R.id.action_about) {
 
-            FragmentManager mgr = getFragmentManager();
-            Fragment newFragment = mgr.findFragmentByTag(AboutMenuFragment.NAME);
-            if ( newFragment == null ) {
-                newFragment = new AboutMenuFragment();
-            }
-            FragmentTransaction trans = mgr.beginTransaction();
-            trans.replace(R.id.all_conflicts_activity_view, newFragment, AboutMenuFragment.NAME);
-            trans.addToBackStack(AboutMenuFragment.NAME);
-            trans.commit();
-
+            FragmentManager mgr = getSupportFragmentManager();
+            GoToAboutFragment.GotoAboutFragment(mgr,R.id.all_conflicts_activity_view);
             return true;
         }
         return super.onOptionsItemSelected(item);

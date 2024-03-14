@@ -17,12 +17,9 @@ package org.opendatakit.services.resolve.checkpoint;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.ListFragment;
-import android.app.LoaderManager;
 import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.Loader;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -31,19 +28,23 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.fragment.app.ListFragment;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.Loader;
+
 import org.opendatakit.consts.IntentConsts;
 import org.opendatakit.database.data.OrderedColumns;
+import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.logging.WebLogger;
+import org.opendatakit.services.R;
 import org.opendatakit.services.database.OdkConnectionFactorySingleton;
 import org.opendatakit.services.database.OdkConnectionInterface;
-import org.opendatakit.services.database.utlities.ODKDatabaseImplUtils;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.database.service.DbHandle;
-import org.opendatakit.services.utilities.ActiveUserAndLocale;
+import org.opendatakit.services.database.utilities.ODKDatabaseImplUtils;
 import org.opendatakit.services.resolve.views.components.ConflictResolutionColumnListAdapter;
 import org.opendatakit.services.resolve.views.components.Resolution;
 import org.opendatakit.services.resolve.views.components.ResolveActionList;
 import org.opendatakit.services.resolve.views.components.ResolveActionType;
-import org.opendatakit.services.R;
+import org.opendatakit.services.utilities.ActiveUserAndLocale;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -561,7 +562,7 @@ public class CheckpointResolutionRowFragment extends ListFragment implements
 
     setListAdapter(mAdapter);
 
-    getLoaderManager().initLoader(RESOLVE_FIELD_LOADER, null, this);
+    LoaderManager.getInstance(this).initLoader(RESOLVE_FIELD_LOADER, null, this);
   }
 
   @Override
@@ -569,10 +570,10 @@ public class CheckpointResolutionRowFragment extends ListFragment implements
     View view = inflater.inflate(ID, container, false);
 
     this.mTextViewCheckpointOverviewMessage =
-        (TextView) view.findViewById(R.id.checkpoint_overview_message);
-    this.mButtonTakeOldest = (Button) view.findViewById(R.id.take_oldest);
-    this.mButtonTakeNewest = (Button) view.findViewById(R.id.take_newest);
-    this.mButtonTakeNewestWithDeltas = (Button) view.findViewById(R.id.take_newest_with_deltas);
+        view.findViewById(R.id.checkpoint_overview_message);
+    this.mButtonTakeOldest = view.findViewById(R.id.take_oldest);
+    this.mButtonTakeNewest = view.findViewById(R.id.take_newest);
+    this.mButtonTakeNewestWithDeltas = view.findViewById(R.id.take_newest_with_deltas);
 
     return view;
   }

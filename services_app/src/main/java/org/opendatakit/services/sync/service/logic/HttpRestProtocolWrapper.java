@@ -15,13 +15,12 @@
  */
 package org.opendatakit.services.sync.service.logic;
 
-import android.accounts.Account;
-import android.accounts.AccountManager;
-import org.apache.commons.lang3.CharEncoding;
 import org.opendatakit.aggregate.odktables.rest.ApiConstants;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.logging.WebLoggerIf;
-import org.opendatakit.httpclientandroidlib.*;
+import org.opendatakit.httpclientandroidlib.Header;
+import org.opendatakit.httpclientandroidlib.HttpEntity;
+import org.opendatakit.httpclientandroidlib.HttpHeaders;
+import org.opendatakit.httpclientandroidlib.HttpStatus;
+import org.opendatakit.httpclientandroidlib.NameValuePair;
 import org.opendatakit.httpclientandroidlib.auth.AuthScope;
 import org.opendatakit.httpclientandroidlib.auth.Credentials;
 import org.opendatakit.httpclientandroidlib.auth.UsernamePasswordCredentials;
@@ -32,7 +31,10 @@ import org.opendatakit.httpclientandroidlib.client.config.AuthSchemes;
 import org.opendatakit.httpclientandroidlib.client.config.CookieSpecs;
 import org.opendatakit.httpclientandroidlib.client.config.RequestConfig;
 import org.opendatakit.httpclientandroidlib.client.entity.GzipCompressingEntity;
-import org.opendatakit.httpclientandroidlib.client.methods.*;
+import org.opendatakit.httpclientandroidlib.client.methods.CloseableHttpResponse;
+import org.opendatakit.httpclientandroidlib.client.methods.HttpPost;
+import org.opendatakit.httpclientandroidlib.client.methods.HttpPut;
+import org.opendatakit.httpclientandroidlib.client.methods.HttpRequestBase;
 import org.opendatakit.httpclientandroidlib.client.protocol.HttpClientContext;
 import org.opendatakit.httpclientandroidlib.client.utils.URIBuilder;
 import org.opendatakit.httpclientandroidlib.config.SocketConfig;
@@ -46,15 +48,44 @@ import org.opendatakit.httpclientandroidlib.message.BasicNameValuePair;
 import org.opendatakit.httpclientandroidlib.protocol.BasicHttpContext;
 import org.opendatakit.httpclientandroidlib.protocol.HttpContext;
 import org.opendatakit.httpclientandroidlib.util.EntityUtils;
+import org.opendatakit.logging.WebLogger;
+import org.opendatakit.logging.WebLoggerIf;
 import org.opendatakit.services.R;
 import org.opendatakit.services.sync.service.SyncExecutionContext;
-import org.opendatakit.services.sync.service.exceptions.*;
+import org.opendatakit.services.sync.service.exceptions.AccessDeniedException;
+import org.opendatakit.services.sync.service.exceptions.BadClientConfigException;
+import org.opendatakit.services.sync.service.exceptions.ClientDetectedVersionMismatchedServerResponseException;
+import org.opendatakit.services.sync.service.exceptions.HttpClientWebException;
+import org.opendatakit.services.sync.service.exceptions.InternalServerFailureException;
+import org.opendatakit.services.sync.service.exceptions.NetworkTransmissionException;
+import org.opendatakit.services.sync.service.exceptions.NotOpenDataKitServerException;
+import org.opendatakit.services.sync.service.exceptions.ServerDetectedVersionMismatchedClientRequestException;
+import org.opendatakit.services.sync.service.exceptions.UnexpectedServerRedirectionStatusCodeException;
 
-import java.io.*;
-import java.net.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.CookieHandler;
+import java.net.CookieManager;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+import java.net.UnknownServiceException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
 
 /**
  * Extraction of the lower-level REST protocol support methods from
@@ -562,7 +593,7 @@ public class HttpRestProtocolWrapper {
     ContentType json = ContentType.create(ContentType.APPLICATION_JSON.getMimeType(), param1);
 
     // don't really want plaintext...
-    NameValuePair param2 = new BasicNameValuePair("charset", CharEncoding.UTF_8.toLowerCase(Locale.ENGLISH));
+    NameValuePair param2 = new BasicNameValuePair("charset", (StandardCharsets.UTF_8.name()).toLowerCase(Locale.ENGLISH));
     NameValuePair param3 = new BasicNameValuePair("q", "0.4");
 
     ContentType tplainUtf8 = ContentType.create(ContentType.TEXT_PLAIN.getMimeType(), param2, param3);
@@ -573,7 +604,7 @@ public class HttpRestProtocolWrapper {
     request.addHeader("accept", tplainUtf8.toString());
 
     // set the response entity character set to CharEncoding.UTF_8
-    request.addHeader("Accept-Charset", CharEncoding.UTF_8);
+    request.addHeader("Accept-Charset", StandardCharsets.UTF_8.name());
   }
 
 
@@ -624,8 +655,7 @@ public class HttpRestProtocolWrapper {
   }
 
 
-  public HttpRestProtocolWrapper(SyncExecutionContext sc) throws
-      InvalidAuthTokenException {
+  public HttpRestProtocolWrapper(SyncExecutionContext sc) {
     this.sc = sc;
     this.log = WebLogger.getLogger(sc.getAppName());
     log.e(LOGTAG, "AggregateUri:" + sc.getAggregateUri());
@@ -675,15 +705,7 @@ public class HttpRestProtocolWrapper {
     String host = destination.getHost();
     String authenticationType = sc.getAuthenticationType();
 
-    if ( sc.getString(R.string.credential_type_google_account)
-        .equals(authenticationType)) {
-
-      String accessToken = sc.getAccessToken();
-      checkAccessToken(accessToken);
-      this.accessToken = accessToken;
-
-
-    } else if ( sc.getString(R.string.credential_type_username_password)
+     if ( sc.getString(R.string.credential_type_username_password)
         .equals(authenticationType)) {
       String username = sc.getUsername();
       String password = sc.getPassword();
@@ -749,51 +771,7 @@ public class HttpRestProtocolWrapper {
 
   }
 
-  private final static String authString = "oauth2:https://www.googleapis.com/auth/userinfo.email";
-
-  private String updateAccessToken() throws InvalidAuthTokenException {
-    try {
-      AccountManager accountManager = sc.getAccountManager();
-      Account account = sc.getAccount();
-      this.accessToken = accountManager.blockingGetAuthToken(account, authString, true);
-      return accessToken;
-    } catch (Exception e) {
-      e.printStackTrace();
-      throw new InvalidAuthTokenException("unable to update access token -- please re-authorize");
-    }
-  }
-  
-  private void checkAccessToken(String accessToken) throws InvalidAuthTokenException {
-
-    CloseableHttpResponse response = null;
-    try {
-      HttpGet request = new HttpGet();
-      String tokenStr =  TOKEN_INFO + URLEncoder.encode(accessToken, ApiConstants.UTF8_ENCODE);
-      URI tokenUri = new URI(tokenStr);
-      request.setURI(tokenUri);
-
-      if (localAuthContext != null) {
-        response = httpAuthClient.execute(request, localAuthContext);
-      } else {
-        response = httpAuthClient.execute(request);
-      }
-    } catch (Exception e) {
-      log.e(LOGTAG, "HttpClientErrorException in checkAccessToken");
-      log.printStackTrace(e);
-      throw new InvalidAuthTokenException("Invalid auth token (): " + accessToken, e);
-    } finally {
-      try {
-        if (response != null) {
-          response.close();
-        }
-      } catch (Exception e) {
-        log.e(LOGTAG, "checkAccessToken: error when trying to close response");
-        log.printStackTrace(e);
-      }
-    }
-  }
-
-  public String convertResponseToString(CloseableHttpResponse response) throws IOException {
+  public static String convertResponseToString(CloseableHttpResponse response) throws IOException {
 
     if (response == null) {
       throw new IllegalArgumentException("Can't convert null response to string!!");
@@ -822,14 +800,6 @@ public class HttpRestProtocolWrapper {
     CloseableHttpResponse response = null;
     String authenticationType = sc.getAuthenticationType();
 
-    boolean isGoogleAccount = false;
-    if ( sc.getString(R.string.credential_type_google_account)
-        .equals(authenticationType)) {
-
-      isGoogleAccount = true;
-      request.addHeader("Authorization", "Bearer " + accessToken);
-    }
-
     // we set success to true when we return the response.
     // When we exit the outer try, if success is false,
     // consume any response entity and close the response.
@@ -842,18 +812,6 @@ public class HttpRestProtocolWrapper {
           response = httpClient.execute(request);
         }
 
-        if (isGoogleAccount && response.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-          request.removeHeaders("Authorization");
-          updateAccessToken();
-          request.addHeader("Authorization", "Bearer " + accessToken);
-
-          // re-issue the request with new access token
-          if (localContext != null) {
-            response = httpClient.execute(request, localContext);
-          } else {
-            response = httpClient.execute(request);
-          }
-        }
       } catch (MalformedURLException e) {
         log.e(LOGTAG, "Bad client config -- malformed URL");
         log.printStackTrace(e);
@@ -875,13 +833,6 @@ public class HttpRestProtocolWrapper {
         log.printStackTrace(e);
         // bad request construction
         throw new ServerDetectedVersionMismatchedClientRequestException("Bad request construction - " + e.toString(), e,
-                request, response);
-      } catch (InvalidAuthTokenException e) {
-        log.e(LOGTAG, "updating of Google access token failed");
-        log.printStackTrace(e);
-        // problem interacting with Google to update Auth token.
-        // this should be treated as an authentication failure
-        throw new AccessDeniedReauthException("updating of Google access token failed", e,
                 request, response);
       } catch (Exception e) {
         log.e(LOGTAG, "Network failure - " + e.toString());
@@ -953,7 +904,7 @@ public class HttpRestProtocolWrapper {
     }
   }
 
-  public String determineContentType(String fileName) {
+  public static String determineContentType(String fileName) {
     int ext = fileName.lastIndexOf('.');
     if (ext == -1) {
       return "application/octet-stream";
@@ -966,7 +917,7 @@ public class HttpRestProtocolWrapper {
     return mimeType;
   }
 
-  public String extractInstanceFileRelativeFilename(String header) {
+  public static String extractInstanceFileRelativeFilename(String header) {
     // Get the file name
     int firstIndex = header.indexOf(multipartFileHeader);
     if ( firstIndex == -1 ) {

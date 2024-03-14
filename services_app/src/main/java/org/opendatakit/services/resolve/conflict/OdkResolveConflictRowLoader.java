@@ -15,34 +15,41 @@
  */
 package org.opendatakit.services.resolve.conflict;
 
-import android.content.AsyncTaskLoader;
 import android.content.Context;
 import android.database.Cursor;
-import org.opendatakit.aggregate.odktables.rest.SyncState;
-import org.opendatakit.database.RoleConsts;
+
+import androidx.loader.content.AsyncTaskLoader;
+
 import org.opendatakit.aggregate.odktables.rest.ConflictType;
 import org.opendatakit.aggregate.odktables.rest.KeyValueStoreConstants;
-import org.opendatakit.database.data.OrderedColumns;
-import org.opendatakit.database.data.UserTable;
+import org.opendatakit.aggregate.odktables.rest.SyncState;
 import org.opendatakit.database.DatabaseConstants;
-import org.opendatakit.services.database.OdkConnectionFactorySingleton;
-import org.opendatakit.services.database.OdkConnectionInterface;
+import org.opendatakit.database.RoleConsts;
+import org.opendatakit.database.data.BaseTable;
+import org.opendatakit.database.data.KeyValueStoreEntry;
+import org.opendatakit.database.data.OrderedColumns;
+import org.opendatakit.database.data.TypedRow;
+import org.opendatakit.database.data.UserTable;
+import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.database.utilities.QueryUtil;
+import org.opendatakit.logging.WebLogger;
 import org.opendatakit.provider.DataTableColumns;
 import org.opendatakit.provider.FormsColumns;
-import org.opendatakit.services.utilities.ActiveUserAndLocale;
-import org.opendatakit.utilities.NameUtil;
-import org.opendatakit.utilities.LocalizationUtils;
-import org.opendatakit.services.database.utlities.ODKDatabaseImplUtils;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.database.data.KeyValueStoreEntry;
-import org.opendatakit.database.service.DbHandle;
-import org.opendatakit.database.data.Row;
-import org.opendatakit.database.data.BaseTable;
-import org.opendatakit.database.utilities.QueryUtil;
+import org.opendatakit.services.database.OdkConnectionFactorySingleton;
+import org.opendatakit.services.database.OdkConnectionInterface;
+import org.opendatakit.services.database.utilities.ODKDatabaseImplUtils;
 import org.opendatakit.services.resolve.views.components.ResolveActionList;
 import org.opendatakit.services.resolve.views.components.ResolveRowEntry;
+import org.opendatakit.services.utilities.ActiveUserAndLocale;
+import org.opendatakit.utilities.LocalizationUtils;
+import org.opendatakit.utilities.NameUtil;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * @author mitchellsundt@gmail.com
@@ -152,8 +159,8 @@ class OdkResolveConflictRowLoader extends AsyncTaskLoader<ArrayList<ResolveRowEn
         for (int i = 0; i < table.getNumberOfRows(); ++i) {
           // full set of ids in conflict
           ids.add(table.getRowId(i));
-          Row theRow = table.getRowAtIndex(i);
-          String strLocalConflictValue = theRow.getDataByKey(DataTableColumns.CONFLICT_TYPE);
+          TypedRow theRow = table.getRowAtIndex(i);
+          String strLocalConflictValue = theRow.getRawStringByKey(DataTableColumns.CONFLICT_TYPE);
           // the strLocalConflictValue will always be an integer because of the where clause
           int localConflictValue = Integer.valueOf(strLocalConflictValue);
           localConflictTypeMap.put(table.getRowId(i), localConflictValue);
@@ -177,8 +184,8 @@ class OdkResolveConflictRowLoader extends AsyncTaskLoader<ArrayList<ResolveRowEn
           // a subset of the privileged query result set.
           int localConflictValue = localConflictTypeMap.get(rowId);
 
-          Row theRow = unprivilegedTable.getRowAtIndex(i);
-          String effectiveAccess = theRow.getDataByKey(DataTableColumns.EFFECTIVE_ACCESS);
+          TypedRow theRow = unprivilegedTable.getRowAtIndex(i);
+          String effectiveAccess = theRow.getRawStringByKey(DataTableColumns.EFFECTIVE_ACCESS);
 
           if ( localConflictValue == ConflictType.LOCAL_UPDATED_UPDATED_VALUES &&
               effectiveAccess.contains("w") ) {
@@ -242,8 +249,8 @@ class OdkResolveConflictRowLoader extends AsyncTaskLoader<ArrayList<ResolveRowEn
         // resolve the automatically-resolvable ones
         // (the ones that differ only in their metadata).
         for ( int i = 0 ; i < table.getNumberOfRows(); ++i ) {
-          Row row = table.getRowAtIndex(i);
-          String rowId = row.getDataByKey(DataTableColumns.ID);
+          TypedRow row = table.getRowAtIndex(i);
+          String rowId = row.getRawStringByKey(DataTableColumns.ID);
           OdkResolveConflictFieldLoader loader = new OdkResolveConflictFieldLoader(getContext()
               , mAppName, mTableId, rowId);
           ResolveActionList resolveActionList = loader.doWork(dbHandleName);
@@ -367,9 +374,9 @@ class OdkResolveConflictRowLoader extends AsyncTaskLoader<ArrayList<ResolveRowEn
 
     ArrayList<ResolveRowEntry> results = new ArrayList<ResolveRowEntry>();
     for (int i = 0; i < table.getNumberOfRows(); i++) {
-      Row row = table.getRowAtIndex(i);
-      String rowId = row.getDataByKey(DataTableColumns.ID);
-      String instanceName = row.getDataByKey(nameToUse.instanceName);
+      TypedRow row = table.getRowAtIndex(i);
+      String rowId = row.getRawStringByKey(DataTableColumns.ID);
+      String instanceName = row.getRawStringByKey(nameToUse.instanceName);
       ResolveRowEntry re = new ResolveRowEntry(rowId, formDisplayName + ": " + instanceName);
       results.add(re);
     }

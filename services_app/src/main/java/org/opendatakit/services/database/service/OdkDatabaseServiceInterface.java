@@ -20,25 +20,30 @@ import android.os.Parcelable;
 import android.os.RemoteException;
 import android.util.Log;
 
-import org.opendatakit.database.data.*;
-import org.opendatakit.services.database.AndroidConnectFactory;
+import org.opendatakit.database.DatabaseConstants;
+import org.opendatakit.database.data.BaseTable;
+import org.opendatakit.database.data.ColumnList;
+import org.opendatakit.database.data.KeyValueStoreEntry;
+import org.opendatakit.database.data.OrderedColumns;
+import org.opendatakit.database.data.TableDefinitionEntry;
+import org.opendatakit.database.data.TableMetaDataEntries;
 import org.opendatakit.database.queries.BindArgs;
-import org.opendatakit.database.service.AidlDbInterface;
+import org.opendatakit.database.queries.QueryBounds;
 import org.opendatakit.database.service.DbChunk;
 import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.database.service.IDbInterface;
 import org.opendatakit.database.service.TableHealthInfo;
+import org.opendatakit.database.utilities.DbChunkUtil;
 import org.opendatakit.exception.ActionNotAuthorizedException;
 import org.opendatakit.logging.WebLogger;
-import org.opendatakit.database.DatabaseConstants;
-import org.opendatakit.database.queries.QueryBounds;
-import org.opendatakit.database.utilities.DbChunkUtil;
+import org.opendatakit.services.database.AndroidConnectFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-class OdkDatabaseServiceInterface extends AidlDbInterface.Stub {
+class OdkDatabaseServiceInterface extends IDbInterface.Stub {
 
   private static final String TAG = OdkDatabaseServiceInterface.class.getSimpleName();
 
@@ -242,7 +247,7 @@ class OdkDatabaseServiceInterface extends AidlDbInterface.Stub {
       throws RemoteException {
 
     try {
-      odkDatabaseServiceImpl.updateLocalOnlyRow(appName, dbHandleName, tableId, rowValues,
+      odkDatabaseServiceImpl.updateLocalOnlyRows(appName, dbHandleName, tableId, rowValues,
           whereClause, sqlBindArgs);
     } catch (Exception e) {
       throw createWrappingRemoteException(appName, dbHandleName, "updateLocalOnlyRow", e);
@@ -263,7 +268,7 @@ class OdkDatabaseServiceInterface extends AidlDbInterface.Stub {
       String whereClause, BindArgs sqlBindArgs) throws RemoteException {
 
     try {
-      odkDatabaseServiceImpl.deleteLocalOnlyRow(appName, dbHandleName, tableId, whereClause,
+      odkDatabaseServiceImpl.deleteLocalOnlyRows(appName, dbHandleName, tableId, whereClause,
           sqlBindArgs);
     } catch (Exception e) {
       throw createWrappingRemoteException(appName, dbHandleName, "deleteLocalOnlyRow", e);
@@ -387,6 +392,16 @@ class OdkDatabaseServiceInterface extends AidlDbInterface.Stub {
       odkDatabaseServiceImpl.deleteTableAndAllData(appName, dbHandleName, tableId);
     } catch (Exception e) {
       throw createWrappingRemoteException(appName, dbHandleName, "deleteTableAndAllData", e);
+    }
+  }
+
+  @Override public boolean rescanTableFormDefs(String appName, DbHandle dbHandleName,
+                                              String tableId) throws RemoteException {
+
+    try {
+      return odkDatabaseServiceImpl.rescanTableFormDefs(appName, dbHandleName, tableId);
+    } catch (Exception e) {
+      throw createWrappingRemoteException(appName, dbHandleName, "rescanTableFormDefs", e);
     }
   }
 

@@ -17,12 +17,9 @@ package org.opendatakit.services.resolve.conflict;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.ListFragment;
-import android.app.LoaderManager;
 import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.Loader;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -31,19 +28,22 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.opendatakit.consts.IntentConsts;
-import org.opendatakit.database.RoleConsts;
+import androidx.fragment.app.ListFragment;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.Loader;
+
 import org.opendatakit.aggregate.odktables.rest.ConflictType;
+import org.opendatakit.consts.IntentConsts;
+import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.logging.WebLogger;
+import org.opendatakit.services.R;
 import org.opendatakit.services.database.OdkConnectionFactorySingleton;
 import org.opendatakit.services.database.OdkConnectionInterface;
-import org.opendatakit.services.database.utlities.ODKDatabaseImplUtils;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.database.service.DbHandle;
-import org.opendatakit.services.utilities.ActiveUserAndLocale;
+import org.opendatakit.services.database.utilities.ODKDatabaseImplUtils;
 import org.opendatakit.services.resolve.views.components.ConflictResolutionColumnListAdapter;
 import org.opendatakit.services.resolve.views.components.Resolution;
 import org.opendatakit.services.resolve.views.components.ResolveActionList;
-import org.opendatakit.services.R;
+import org.opendatakit.services.utilities.ActiveUserAndLocale;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -643,7 +643,7 @@ public class ConflictResolutionRowFragment extends ListFragment implements
 
     setListAdapter(mAdapter);
 
-    getLoaderManager().initLoader(RESOLVE_FIELD_LOADER, null, this);
+    LoaderManager.getInstance(this).initLoader(RESOLVE_FIELD_LOADER, null, this);
 
   }
 
@@ -652,10 +652,10 @@ public class ConflictResolutionRowFragment extends ListFragment implements
     View view = inflater.inflate(ID, container, false);
 
     this.mTextViewConflictOverviewMessage =
-        (TextView) view.findViewById(R.id.conflict_overview_message);
-    this.mButtonTakeServer = (Button) view.findViewById(R.id.take_server);
-    this.mButtonTakeLocal = (Button) view.findViewById(R.id.take_local);
-    this.mButtonTakeLocalWithDeltas = (Button) view.findViewById(R.id.take_local_with_deltas);
+            view.findViewById(R.id.conflict_overview_message);
+    this.mButtonTakeServer = view.findViewById(R.id.take_server);
+    this.mButtonTakeLocal = view.findViewById(R.id.take_local);
+    this.mButtonTakeLocalWithDeltas = view.findViewById(R.id.take_local_with_deltas);
 
     return view;
   }

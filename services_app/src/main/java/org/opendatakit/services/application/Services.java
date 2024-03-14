@@ -14,20 +14,37 @@
 
 package org.opendatakit.services.application;
 
+import android.content.Context;
+
+import com.google.firebase.analytics.FirebaseAnalytics;
+
+import org.opendatakit.application.IToolAware;
 import org.opendatakit.application.ToolAwareApplication;
 import org.opendatakit.services.R;
 
-public class Services extends ToolAwareApplication {
+import java.lang.ref.WeakReference;
 
-  private static Services singleton = null;
+public final class Services extends ToolAwareApplication implements IToolAware {
+
+  private static final String t = Services.class.getSimpleName();
+
+  private FirebaseAnalytics analytics;
+  private static WeakReference<Services> singleton = null;
 
   @Override public int getApkDisplayNameResourceId() {
     return R.string.app_name;
   }
 
-  @Override
+   @Override
   public void onCreate() {
-    singleton = this;
+    if (singleton == null) singleton = new WeakReference<>(this);
     super.onCreate();
+
+    analytics = FirebaseAnalytics.getInstance(this);
+    analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null);
+  }
+
+  @Deprecated public static Context _please_dont_use_getInstance() {
+    return singleton.get();
   }
 }

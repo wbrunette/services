@@ -14,8 +14,6 @@
 
 package org.opendatakit.services.sync.service;
 
-import android.accounts.Account;
-import android.accounts.AccountManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -28,22 +26,26 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 
 import org.opendatakit.aggregate.odktables.rest.KeyValueStoreConstants;
 import org.opendatakit.consts.IntentConsts;
-import org.opendatakit.database.service.*;
+import org.opendatakit.database.data.KeyValueStoreEntry;
+import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.database.service.IDbInterface;
+import org.opendatakit.database.service.InternalUserDbInterfaceAidlWrapperImpl;
+import org.opendatakit.database.service.UserDbInterface;
+import org.opendatakit.database.service.UserDbInterfaceImpl;
 import org.opendatakit.exception.ServicesAvailabilityException;
+import org.opendatakit.logging.WebLogger;
 import org.opendatakit.properties.CommonToolProperties;
 import org.opendatakit.properties.PropertiesSingleton;
 import org.opendatakit.properties.PropertyManager;
-import org.opendatakit.sync.service.SyncNotification;
+import org.opendatakit.services.sync.service.logic.Synchronizer;
+import org.opendatakit.services.sync.service.logic.Synchronizer.SynchronizerStatus;
+import org.opendatakit.services.utilities.Constants;
 import org.opendatakit.sync.service.SyncOutcome;
 import org.opendatakit.sync.service.SyncOverallResult;
 import org.opendatakit.sync.service.SyncProgressState;
 import org.opendatakit.sync.service.TableLevelResult;
-import org.opendatakit.utilities.NameUtil;
 import org.opendatakit.utilities.LocalizationUtils;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.database.data.KeyValueStoreEntry;
-import org.opendatakit.services.sync.service.logic.Synchronizer;
-import org.opendatakit.services.sync.service.logic.Synchronizer.SynchronizerStatus;
+import org.opendatakit.utilities.NameUtil;
 import org.sqlite.database.sqlite.SQLiteException;
 
 import java.io.IOException;
@@ -67,16 +69,11 @@ public class SyncExecutionContext implements SynchronizerStatus {
   private int nMajorSyncSteps;
   private int iMajorSyncStep;
   private int GRAINS_PER_MAJOR_SYNC_STEP;
-
   private final Context application;
-  private final String versionCode;
   private final String appName;
-  private final String odkClientApiVersion;
   private final String userAgent;
-
   private final String aggregateUri;
   private final String authenticationType;
-  private final String googleAccount;
   private final String username;
   private final String password;
   private final String installationId;
@@ -84,7 +81,7 @@ public class SyncExecutionContext implements SynchronizerStatus {
 
   private final String deviceId;
 
-  private final SyncNotification syncProgress;
+  private final SyncProgressTracker syncProgressTracker;
 
   // set this later
   private Synchronizer synchronizer;
@@ -92,14 +89,12 @@ public class SyncExecutionContext implements SynchronizerStatus {
   private DbHandle odkDbHandle = null;
 
   public SyncExecutionContext(Context context, String versionCode, String appName,
-      SyncNotification syncProgress,
+      SyncProgressTracker syncProgressTracker,
       SyncOverallResult syncResult) {
     this.application = context;
     this.appName = appName;
-    this.versionCode = versionCode;
-    this.odkClientApiVersion = versionCode.substring(0, versionCode.length() - 2);
     this.userAgent = "Sync " + versionCode + " (gzip)";
-    this.syncProgress = syncProgress;
+    this.syncProgressTracker = syncProgressTracker;
     this.synchronizer = null;
     this.mUserResult = syncResult;
 
@@ -107,7 +102,6 @@ public class SyncExecutionContext implements SynchronizerStatus {
 
     this.aggregateUri = props.getProperty(CommonToolProperties.KEY_SYNC_SERVER_URL);
     this.authenticationType = props.getProperty(CommonToolProperties.KEY_AUTHENTICATION_TYPE);
-    this.googleAccount = props.getProperty(CommonToolProperties.KEY_ACCOUNT);
     this.username = props.getProperty(CommonToolProperties.KEY_USERNAME);
     this.password = props.getProperty(CommonToolProperties.KEY_PASSWORD);
 
@@ -131,7 +125,13 @@ public class SyncExecutionContext implements SynchronizerStatus {
   public String getString(int resId) {
     return application.getString(resId);
   }
-  
+
+  public void signalPropertiesChange() {
+
+    PropertiesSingleton props = CommonToolProperties.get(application, appName);
+    props.signalPropertiesChange();
+  }
+
   public void setAppLevelSyncOutcome(SyncOutcome syncOutcome) {
     mUserResult.setAppLevelSyncOutcome(syncOutcome);
   }
@@ -191,13 +191,17 @@ public class SyncExecutionContext implements SynchronizerStatus {
   public TableLevelResult getTableLevelResult(String tableId) {
     return mUserResult.fetchTableLevelResult(tableId);
   }
-  
+
+  public Context getApplication() {
+    return application;
+  }
+
   public String getAppName() {
     return this.appName;
   }
 
   public String getOdkClientApiVersion() {
-    return this.odkClientApiVersion;
+    return Constants.ODK_CLIENT_API_VERSION;
   }
 
   public String getUserAgent() {
@@ -210,22 +214,6 @@ public class SyncExecutionContext implements SynchronizerStatus {
 
   public Synchronizer getSynchronizer() {
     return synchronizer;
-  }
-
-  public AccountManager getAccountManager() {
-    AccountManager accountManager = AccountManager.get(application);
-    return accountManager;
-  }
-
-  public Account getAccount() {
-    Account account = new Account(googleAccount, ACCOUNT_TYPE_G);
-    return account;
-  }
-
-  public String getAccessToken() {
-    PropertiesSingleton props = CommonToolProperties.get(application, appName);
-
-    return props.getProperty(CommonToolProperties.KEY_AUTH);
   }
 
   public String getAuthenticationType() {
@@ -258,7 +246,6 @@ public class SyncExecutionContext implements SynchronizerStatus {
     deviceInfo.put("androidDevice", Build.DEVICE);
     deviceInfo.put("androidDeviceDisplayString", Build.DISPLAY);
     deviceInfo.put("androidBuildFingerprint", Build.FINGERPRINT);
-    deviceInfo.put("androidHardware", Build.HARDWARE);
     deviceInfo.put("androidId", Build.ID);
     deviceInfo.put("androidBrand", Build.BRAND);
     deviceInfo.put("androidManufacturer", Build.MANUFACTURER);
@@ -367,7 +354,7 @@ public class SyncExecutionContext implements SynchronizerStatus {
       synchronized (odkDbInterfaceBindComplete) {
         try {
           odkDbInterface = (service == null) ? null : new UserDbInterfaceImpl(
-              new InternalUserDbInterfaceAidlWrapperImpl(AidlDbInterface
+              new InternalUserDbInterfaceAidlWrapperImpl(IDbInterface
               .Stub.asInterface(service)));
         } catch (IllegalArgumentException e) {
           odkDbInterface = null;
@@ -469,7 +456,7 @@ public class SyncExecutionContext implements SynchronizerStatus {
         text = String.format(fmt, formatArgVals);
       }
     }
-    syncProgress.updateNotification(state, text, OVERALL_PROGRESS_BAR_LENGTH, (int) (iMajorSyncStep
+    syncProgressTracker.updateNotification(state, text, OVERALL_PROGRESS_BAR_LENGTH, (int) (iMajorSyncStep
         * GRAINS_PER_MAJOR_SYNC_STEP + ((progressPercentage != null) ? (progressPercentage
         * GRAINS_PER_MAJOR_SYNC_STEP / 100.0) : 0.0)), indeterminateProgress);
   }

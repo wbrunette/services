@@ -17,7 +17,23 @@ package org.opendatakit.services.sync.service.logic;
 
 import org.apache.commons.fileupload.MultipartStream;
 import org.opendatakit.aggregate.odktables.rest.SyncState;
-import org.opendatakit.aggregate.odktables.rest.entity.*;
+import org.opendatakit.aggregate.odktables.rest.entity.AppNameList;
+import org.opendatakit.aggregate.odktables.rest.entity.ChangeSetList;
+import org.opendatakit.aggregate.odktables.rest.entity.Column;
+import org.opendatakit.aggregate.odktables.rest.entity.DataKeyValue;
+import org.opendatakit.aggregate.odktables.rest.entity.OdkTablesFileManifest;
+import org.opendatakit.aggregate.odktables.rest.entity.OdkTablesFileManifestEntry;
+import org.opendatakit.aggregate.odktables.rest.entity.PrivilegesInfo;
+import org.opendatakit.aggregate.odktables.rest.entity.Row;
+import org.opendatakit.aggregate.odktables.rest.entity.RowFilterScope;
+import org.opendatakit.aggregate.odktables.rest.entity.RowList;
+import org.opendatakit.aggregate.odktables.rest.entity.RowOutcomeList;
+import org.opendatakit.aggregate.odktables.rest.entity.RowResourceList;
+import org.opendatakit.aggregate.odktables.rest.entity.TableDefinition;
+import org.opendatakit.aggregate.odktables.rest.entity.TableDefinitionResource;
+import org.opendatakit.aggregate.odktables.rest.entity.TableResource;
+import org.opendatakit.aggregate.odktables.rest.entity.TableResourceList;
+import org.opendatakit.aggregate.odktables.rest.entity.UserInfoList;
 import org.opendatakit.database.data.ColumnDefinition;
 import org.opendatakit.database.data.OrderedColumns;
 import org.opendatakit.httpclientandroidlib.Header;
@@ -50,10 +66,11 @@ import org.opendatakit.services.sync.service.exceptions.BadClientConfigException
 import org.opendatakit.services.sync.service.exceptions.ClientDetectedMissingConfigForClientVersionException;
 import org.opendatakit.services.sync.service.exceptions.ClientDetectedVersionMismatchedServerResponseException;
 import org.opendatakit.services.sync.service.exceptions.HttpClientWebException;
-import org.opendatakit.services.sync.service.exceptions.InvalidAuthTokenException;
 import org.opendatakit.services.sync.service.exceptions.NetworkTransmissionException;
 import org.opendatakit.services.sync.service.exceptions.ServerDoesNotRecognizeAppNameException;
 import org.opendatakit.sync.service.SyncAttachmentState;
+import org.opendatakit.sync.service.logic.CommonFileAttachmentTerms;
+import org.opendatakit.sync.service.logic.FileManifestDocument;
 import org.opendatakit.utilities.ODKFileUtils;
 
 import java.io.BufferedInputStream;
@@ -65,9 +82,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.*;
+import java.net.URI;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Implementation of {@link Synchronizer} for ODK Aggregate.
@@ -76,7 +97,7 @@ import java.util.*;
  * @author sudar.sam@gmail.com
  *
  */
-public class AggregateSynchronizer implements Synchronizer {
+public class AggregateSynchronizer implements HttpSynchronizer {
 
   private static final String LOGTAG = AggregateSynchronizer.class.getSimpleName();
   public static final int DEFAULT_BOUNDARY_BUFSIZE = 4096;
@@ -92,7 +113,7 @@ public class AggregateSynchronizer implements Synchronizer {
   private HttpRestProtocolWrapper wrapper;
   private final WebLoggerIf log;
 
-  public AggregateSynchronizer(SyncExecutionContext sc) throws InvalidAuthTokenException {
+  public AggregateSynchronizer(SyncExecutionContext sc) {
     this.sc = sc;
     this.wrapper = new HttpRestProtocolWrapper(sc);
     this.log = WebLogger.getLogger(sc.getAppName());
@@ -487,30 +508,31 @@ public class AggregateSynchronizer implements Synchronizer {
 
   @Override
   public RowOutcomeList pushLocalRows(TableResource resource, OrderedColumns orderedColumns,
-      List<org.opendatakit.database.data.Row> rowsToInsertUpdateOrDelete) throws IOException, HttpClientWebException {
+      List<org.opendatakit.database.data.TypedRow> rowsToInsertUpdateOrDelete) throws IOException,
+      HttpClientWebException {
 
     ArrayList<Row> rows = new ArrayList<Row>();
-    for (org.opendatakit.database.data.Row rowToAlter : rowsToInsertUpdateOrDelete) {
+    for (org.opendatakit.database.data.TypedRow rowToAlter : rowsToInsertUpdateOrDelete) {
 
       ArrayList<DataKeyValue> values = new ArrayList<DataKeyValue>();
       for (ColumnDefinition column : orderedColumns.getColumnDefinitions()) {
         if (column.isUnitOfRetention()) {
           String elementKey = column.getElementKey();
-          values.add(new DataKeyValue(elementKey, rowToAlter.getDataByKey(elementKey)));
+          values.add(new DataKeyValue(elementKey, rowToAlter.getStringValueByKey(elementKey)));
         }
       }
 
-      Row row = Row.forUpdate(rowToAlter.getDataByKey(DataTableColumns.ID),
-          rowToAlter.getDataByKey(DataTableColumns.ROW_ETAG),
-          rowToAlter.getDataByKey(DataTableColumns.FORM_ID),
-          rowToAlter.getDataByKey(DataTableColumns.LOCALE),
-          rowToAlter.getDataByKey(DataTableColumns.SAVEPOINT_TYPE),
-          rowToAlter.getDataByKey(DataTableColumns.SAVEPOINT_TIMESTAMP),
-          rowToAlter.getDataByKey(DataTableColumns.SAVEPOINT_CREATOR),
-          RowFilterScope.asRowFilter(rowToAlter.getDataByKey(DataTableColumns.DEFAULT_ACCESS),
-              rowToAlter.getDataByKey(DataTableColumns.ROW_OWNER), rowToAlter.getDataByKey
-                  (DataTableColumns.GROUP_READ_ONLY), rowToAlter.getDataByKey(DataTableColumns
-                  .GROUP_MODIFY), rowToAlter.getDataByKey(DataTableColumns.GROUP_PRIVILEGED)),
+      Row row = Row.forUpdate(rowToAlter.getRawStringByKey(DataTableColumns.ID),
+          rowToAlter.getRawStringByKey(DataTableColumns.ROW_ETAG),
+          rowToAlter.getRawStringByKey(DataTableColumns.FORM_ID),
+          rowToAlter.getRawStringByKey(DataTableColumns.LOCALE),
+          rowToAlter.getRawStringByKey(DataTableColumns.SAVEPOINT_TYPE),
+          rowToAlter.getRawStringByKey(DataTableColumns.SAVEPOINT_TIMESTAMP),
+          rowToAlter.getRawStringByKey(DataTableColumns.SAVEPOINT_CREATOR),
+          RowFilterScope.asRowFilter(rowToAlter.getRawStringByKey(DataTableColumns.DEFAULT_ACCESS),
+              rowToAlter.getRawStringByKey(DataTableColumns.ROW_OWNER), rowToAlter.getRawStringByKey
+                  (DataTableColumns.GROUP_READ_ONLY), rowToAlter.getRawStringByKey(DataTableColumns
+                  .GROUP_MODIFY), rowToAlter.getRawStringByKey(DataTableColumns.GROUP_PRIVILEGED)),
           values);
 
       boolean isDeleted = SyncState.deleted.name().equals(
@@ -892,7 +914,7 @@ public class AggregateSynchronizer implements Synchronizer {
         localFile);
     URI filesUri = wrapper.constructConfigFileUri(pathRelativeToConfigFolder);
     log.i(LOGTAG, "[uploadConfigFile] filePostUri: " + filesUri.toString());
-    String ct = wrapper.determineContentType(localFile.getName());
+    String ct = HttpRestProtocolWrapper.determineContentType(localFile.getName());
     ContentType contentType = ContentType.create(ct);
 
     CloseableHttpResponse response = null;
@@ -917,7 +939,7 @@ public class AggregateSynchronizer implements Synchronizer {
       IOException
   {
     log.i(LOGTAG, "[uploadInstanceFile] filePostUri: " + instanceFileUri.toString());
-    String ct = wrapper.determineContentType(file.getName());
+    String ct = HttpRestProtocolWrapper.determineContentType(file.getName());
     ContentType contentType = ContentType.create(ct);
 
     CloseableHttpResponse response = null;
@@ -939,7 +961,7 @@ public class AggregateSynchronizer implements Synchronizer {
 
   @Override
   public CommonFileAttachmentTerms createCommonFileAttachmentTerms(String serverInstanceFileUri,
-      String tableId, String instanceId, String rowpathUri) {
+                                                                   String tableId, String instanceId, String rowpathUri) {
 
     File localFile =
         ODKFileUtils.getRowpathFile(sc.getAppName(), tableId, instanceId, rowpathUri);
@@ -978,7 +1000,7 @@ public class AggregateSynchronizer implements Synchronizer {
 
     for (CommonFileAttachmentTerms cat : batch) {
       log.i(LOGTAG, "[uploadFile] filePostUri: " + cat.instanceFileDownloadUri.toString());
-      String ct = wrapper.determineContentType(cat.localFile.getName());
+      String ct = HttpRestProtocolWrapper.determineContentType(cat.localFile.getName());
 
       String filename = ODKFileUtils
           .asRowpathUri(sc.getAppName(), tableId, instanceId, cat.localFile);

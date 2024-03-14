@@ -15,249 +15,262 @@
  */
 package org.opendatakit.services.sync.actions.fragments;
 
-import android.accounts.Account;
-import android.accounts.AccountManager;
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.Fragment;
-import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Paint;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.RemoteException;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleEventObserver;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
+
 import org.opendatakit.consts.IntentConsts;
-import org.opendatakit.services.preferences.activities.IOdkAppPropertiesActivity;
+import org.opendatakit.logging.WebLogger;
 import org.opendatakit.properties.CommonToolProperties;
 import org.opendatakit.properties.PropertiesSingleton;
-import org.opendatakit.logging.WebLogger;
 import org.opendatakit.services.R;
 import org.opendatakit.services.sync.actions.VerifyServerSettingsActions;
-import org.opendatakit.services.sync.actions.activities.*;
+import org.opendatakit.services.sync.actions.activities.AbsSyncBaseActivity;
+import org.opendatakit.services.sync.actions.activities.DoSyncActionCallback;
+import org.opendatakit.services.sync.actions.activities.ISyncServiceInterfaceActivity;
+import org.opendatakit.services.sync.actions.activities.LoginActivity;
+import org.opendatakit.services.sync.actions.activities.VerifyServerSettingsActivity;
+import org.opendatakit.services.sync.actions.viewModels.VerifyViewModel;
+import org.opendatakit.services.utilities.Constants;
+import org.opendatakit.services.utilities.DateTimeUtil;
 import org.opendatakit.services.utilities.ODKServicesPropertyUtils;
-import org.opendatakit.sync.service.OdkSyncServiceInterface;
+import org.opendatakit.services.utilities.UserState;
+import org.opendatakit.sync.service.IOdkSyncServiceInterface;
 import org.opendatakit.sync.service.SyncOverallResult;
 import org.opendatakit.sync.service.SyncProgressEvent;
 import org.opendatakit.sync.service.SyncProgressState;
 import org.opendatakit.sync.service.SyncStatus;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * @author mitchellsundt@gmail.com
  */
-public class VerifyServerSettingsFragment extends Fragment implements ISyncOutcomeHandler {
+public class VerifyServerSettingsFragment extends AbsSyncUIFragment {
+
+  /**
+   * Class handling actions corresponding to Button Clicks
+   */
+  private class OnButtonClick implements View.OnClickListener{
+
+    @Override
+    public void onClick(View v) {
+      if(v.getId()==R.id.btnStartVerifyServer){
+        onStartVerifyServerClick();
+      }
+      else if(v.getId()==R.id.btnStartVerifyUser) {
+        onStartVerifyUserClick();
+      }
+    }
+  }
 
   private static final String TAG = "VerifyServerSettingsFragment";
 
   public static final String NAME = "VerifyServerSettingsFragment";
   public static final int ID = R.layout.verify_server_settings_launch_fragment;
 
-  private static final String ACCOUNT_TYPE_G = "com.google";
+  private static final String PROGRESS_DIALOG_TAG = "progressDialogVerifySvr";
+  private static final String OUTCOME_DIALOG_TAG = "outcomeDialogVerifySvr";
 
-  private static final String VERIFY_SERVER_SETTINGS_ACTION = "verifyServerSettingsAction";
+  private TextView tvHeading ,tvServerUrl, tvServerVerifyStatus, tvServerAnonymousStatus,
+          tvUsernameLabel, tvUsername, tvVerifyStatusLabel, tvVerifyStatus, tvLastSyncLabel, tvLastSync;
 
-  private static final String PROGRESS_DIALOG_TAG = "progressDialog";
+  private Button btnVerifyServer, btnVerifyUser;
 
-  private static final String OUTCOME_DIALOG_TAG = "outcomeDialog";
+  private VerifyViewModel verifyViewModel;
+  private NavController navController;
 
-  private String mAppName;
-
-  private final Handler handler = new Handler();
-  private DismissableProgressDialogFragment progressDialog = null;
-  private DismissableOutcomeDialogFragment outcomeDialog = null;
-
-  private TextView uriField;
-  private TextView accountAuthType;
-  private TextView accountIdentity;
-
-  private Button startVerifyServerSettings;
-
-  private VerifyServerSettingsActions verifyServerSettingsAction = VerifyServerSettingsActions.IDLE;
-
-  @Override
-  public void onSaveInstanceState(Bundle outState) {
-    super.onSaveInstanceState(outState);
-    outState.putString(VERIFY_SERVER_SETTINGS_ACTION, verifyServerSettingsAction.name());
+  public VerifyServerSettingsFragment() {
+    super(OUTCOME_DIALOG_TAG, PROGRESS_DIALOG_TAG);
   }
 
   @Override
-  public void onActivityCreated(Bundle savedInstanceState) {
-    super.onActivityCreated(savedInstanceState);
-
-    Intent incomingIntent = getActivity().getIntent();
-    mAppName = incomingIntent.getStringExtra(IntentConsts.INTENT_KEY_APP_NAME);
-    if (mAppName == null || mAppName.length() == 0) {
-      getActivity().setResult(Activity.RESULT_CANCELED);
-      getActivity().finish();
-      return;
-    }
-
-    if (savedInstanceState != null && savedInstanceState
-        .containsKey(VERIFY_SERVER_SETTINGS_ACTION)) {
-      String action = savedInstanceState.getString(VERIFY_SERVER_SETTINGS_ACTION);
-      try {
-        verifyServerSettingsAction = VerifyServerSettingsActions.valueOf(action);
-      } catch (IllegalArgumentException e) {
-        verifyServerSettingsAction = VerifyServerSettingsActions.IDLE;
-      }
-    }
-    disableButtons();
+  public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+    return inflater.inflate(ID, container, false);
   }
 
   @Override
-  public View onCreateView(LayoutInflater inflater, ViewGroup container,
-      Bundle savedInstanceState) {
-    super.onCreateView(inflater, container, savedInstanceState);
+  public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+    super.onViewCreated(view, savedInstanceState);
 
-    View view = inflater.inflate(ID, container, false);
-    uriField = (TextView) view.findViewById(R.id.sync_uri_field);
-    accountAuthType = (TextView) view.findViewById(R.id.sync_account_auth_label);
-    accountIdentity = (TextView) view.findViewById(R.id.sync_account);
+    findViewsAndAttachListeners(view);
+    setupViewModelAndNavController();
+  }
 
-    if (savedInstanceState != null && savedInstanceState
-        .containsKey(VERIFY_SERVER_SETTINGS_ACTION)) {
-      String action = savedInstanceState.getString(VERIFY_SERVER_SETTINGS_ACTION);
-      try {
-        verifyServerSettingsAction = VerifyServerSettingsActions.valueOf(action);
-      } catch (IllegalArgumentException e) {
-        verifyServerSettingsAction = VerifyServerSettingsActions.IDLE;
+  /**
+   * Finding the different views required and attaching onClick Listeners to them
+   */
+  private void findViewsAndAttachListeners(View view){
+    tvHeading=view.findViewById(R.id.tvUserHeadingVerifySettings);
+    tvServerUrl=view.findViewById(R.id.tvServerUrlVerify);
+    tvServerVerifyStatus=view.findViewById(R.id.tvServerVerifyStatusVerify);
+    tvServerAnonymousStatus=view.findViewById(R.id.tvServerAnonymousAllowedVerify);
+    tvUsernameLabel=view.findViewById(R.id.tvUsernameLabelVerify);
+    tvUsername=view.findViewById(R.id.tvUsernameVerify);
+    tvVerifyStatusLabel=view.findViewById(R.id.tvVerificationStatusLabelVerify);
+    tvVerifyStatus=view.findViewById(R.id.tvVerificationStatusVerify);
+    tvLastSyncLabel=view.findViewById(R.id.tvLastSyncTimeLabelVerify);
+    tvLastSync=view.findViewById(R.id.tvLastSyncTimeVerify);
+
+    btnVerifyServer=view.findViewById(R.id.btnStartVerifyServer);
+    btnVerifyUser=view.findViewById(R.id.btnStartVerifyUser);
+
+    OnButtonClick onButtonClick=new OnButtonClick();
+    btnVerifyUser.setOnClickListener(onButtonClick);
+    btnVerifyServer.setOnClickListener(onButtonClick);
+  }
+
+  private void setupViewModelAndNavController(){
+    verifyViewModel=new ViewModelProvider(requireActivity()).get(VerifyViewModel.class);
+    navController = Navigation.findNavController(requireView());
+
+    verifyViewModel.getServerUrl().observe(getViewLifecycleOwner(), s -> {
+      tvServerUrl.setText(s);
+      tvServerUrl.setPaintFlags(tvServerUrl.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+    });
+
+    verifyViewModel.checkIsServerVerified().observe(getViewLifecycleOwner(), aBoolean -> {
+      if(aBoolean){
+        tvServerVerifyStatus.setText(R.string.verified);
       }
-    }
-
-    startVerifyServerSettings = (Button) view
-        .findViewById(R.id.verify_server_settings_start_button);
-    startVerifyServerSettings.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        onClickVerifyServerSettings(v);
+      else {
+        tvServerVerifyStatus.setText(R.string.not_verified);
       }
     });
 
-    return view;
+    verifyViewModel.checkIsAnonymousSignInUsed().observe(getViewLifecycleOwner(), aBoolean -> {
+      if(!aBoolean){
+        tvServerAnonymousStatus.setText(R.string.not_known_yet);
+      }
+    });
+
+    verifyViewModel.checkIsAnonymousAllowed().observe(getViewLifecycleOwner(), aBoolean -> {
+      if(aBoolean){
+        tvServerAnonymousStatus.setText(R.string.allowed);
+      }else {
+        tvServerAnonymousStatus.setText(R.string.not_allowed);
+      }
+    });
+
+    verifyViewModel.getCurrentUserState().observe(getViewLifecycleOwner(), userState -> {
+      if (userState == UserState.LOGGED_OUT) {
+        inLoggedOutState();
+      } else if (userState == UserState.ANONYMOUS) {
+        inAnonymousState();
+      } else {
+        inAuthenticatedState();
+      }
+    });
+
+    verifyViewModel.getUsername().observe(getViewLifecycleOwner(), s -> tvUsername.setText(s));
+
+    verifyViewModel.checkIsUserVerified().observe(getViewLifecycleOwner(), aBoolean -> {
+      if(aBoolean){
+        tvVerifyStatus.setText(getString(R.string.verified));
+      }else {
+        tvVerifyStatus.setText(getString(R.string.not_verified));
+      }
+    });
+
+    verifyViewModel.checkIsLastSyncTimeAvailable().observe(getViewLifecycleOwner(), aBoolean -> {
+      if(!aBoolean)
+        tvLastSync.setText(getString(R.string.last_sync_not_available));
+    });
+
+    verifyViewModel.getLastSyncTime().observe(getViewLifecycleOwner(), aLong -> tvLastSync.setText(DateTimeUtil.getDisplayDate(aLong)));
   }
 
   @Override
-  public void onResume() {
-    super.onResume();
+  protected void handleLifecycleEvents() {
+    super.handleLifecycleEvents();
 
-    WebLogger.getLogger(getAppName()).i(TAG, "[" + getId() + "] [onResume]");
-
-    Intent incomingIntent = getActivity().getIntent();
-    mAppName = incomingIntent.getStringExtra(IntentConsts.INTENT_KEY_APP_NAME);
-    if (mAppName == null || mAppName.length() == 0) {
-      WebLogger.getLogger(getAppName())
-          .i(TAG, "[" + getId() + "] [onResume] mAppName is null so calling finish");
-      getActivity().setResult(Activity.RESULT_CANCELED);
-      getActivity().finish();
-      return;
-    }
-
-    updateCredentialsUI();
-    perhapsEnableButtons();
-    updateInterface();
+    requireActivity().getLifecycle().addObserver((LifecycleEventObserver) (source, event) -> {
+      if(event == Lifecycle.Event.ON_CREATE){
+        if(getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.CREATED))
+          disableButtons();
+      }
+    });
   }
 
-  private void updateCredentialsUI() {
-    PropertiesSingleton props = ((IOdkAppPropertiesActivity) this.getActivity()).getProps();
-    uriField.setText(props.getProperty(CommonToolProperties.KEY_SYNC_SERVER_URL));
+  private void onStartVerifyServerClick(){
+    getProps().setProperties(Collections.singletonMap(
+                    CommonToolProperties.KEY_AUTHENTICATION_TYPE,
+                    getString(R.string.credential_type_none)));
+    verifyViewModel.setVerifyType("server");
+    onStartVerifyUserClick();
+  }
 
-    String credentialToUse = props.getProperty(CommonToolProperties.KEY_AUTHENTICATION_TYPE);
-    String[] credentialValues = getResources().getStringArray(R.array.credential_entry_values);
-    String[] credentialEntries = getResources().getStringArray(R.array.credential_entries);
+  private void onStartVerifyUserClick(){
+    WebLogger.getLogger(getAppName()).d(TAG,
+            "[" + getId() + "] [onClickVerifyServerSettings] timestamp: " + System.currentTimeMillis());
+    if (areCredentialsConfigured(true)) {
+      disableButtons();
+      verifyViewModel.updateVerifyAction(VerifyServerSettingsActions.VERIFY);
+      if(verifyViewModel.getVerifyType().equals("none"))
+        verifyViewModel.setVerifyType("user");
+      prepareForSyncAction();
+    }
+  }
 
-    if ( credentialToUse == null ) {
-      credentialToUse = getString(R.string.credential_type_none);
-    }
+  private void inLoggedOutState(){
+    handleViewVisibility(View.VISIBLE,View.GONE);
+    tvHeading.setText(R.string.user_logged_out_label);
+  }
 
-    for ( int i = 0 ; i < credentialValues.length ; ++i ) {
-      if ( credentialToUse.equals(credentialValues[i]) ) {
-        if (!credentialToUse.equals(getString(R.string.credential_type_none))) {
-          accountAuthType.setText(credentialEntries[i]);
-        }
-      }
-    }
+  private void inAnonymousState(){
+    handleViewVisibility(View.VISIBLE,View.GONE);
+    tvHeading.setText(R.string.user_anonymous_label);
+  }
 
-    String account = ODKServicesPropertyUtils.getActiveUser(props);
-    int indexOfColon = account.indexOf(':');
-    if (indexOfColon > 0) {
-      account = account.substring(indexOfColon + 1);
-    }
-    if ( credentialToUse.equals(getString(R.string.credential_type_none))) {
-      accountIdentity.setText(getResources().getString(R.string.anonymous));
-    } else if ( credentialToUse.equals(getString(R.string.credential_type_username_password))) {
-      accountIdentity.setText(account);
-    } else if ( credentialToUse.equals(getString(R.string.credential_type_google_account))) {
-      accountIdentity.setText(account);
-    } else {
-      accountIdentity.setText(getResources().getString(R.string.no_account));
-    }
+  private void inAuthenticatedState(){
+    handleViewVisibility(View.GONE,View.VISIBLE);
+  }
+
+  private void handleViewVisibility(int headingVisible, int userDetailVisible){
+    tvHeading.setVisibility(headingVisible);
+
+    tvUsernameLabel.setVisibility(userDetailVisible);
+    tvUsername.setVisibility(userDetailVisible);
+    tvVerifyStatusLabel.setVisibility(userDetailVisible);
+    tvVerifyStatus.setVisibility(userDetailVisible);
+    tvLastSyncLabel.setVisibility(userDetailVisible);
+    tvLastSync.setVisibility(userDetailVisible);
+    btnVerifyUser.setVisibility(userDetailVisible);
   }
 
   private void disableButtons() {
-    startVerifyServerSettings.setEnabled(false);
+    btnVerifyUser.setEnabled(false);
+    btnVerifyServer.setEnabled(false);
   }
 
-  private void perhapsEnableButtons() {
-    PropertiesSingleton props = ((IOdkAppPropertiesActivity) this.getActivity()).getProps();
-    String url = props.getProperty(CommonToolProperties.KEY_SYNC_SERVER_URL);
+  void perhapsEnableButtons() {
+    String url = verifyViewModel.getUrl();
     if (url == null || url.length() == 0) {
       disableButtons();
     } else {
-      startVerifyServerSettings.setEnabled(true);
+      btnVerifyUser.setEnabled(true);
+      btnVerifyServer.setEnabled(true);
     }
-  }
-
-  AlertDialog.Builder buildOkMessage(String title, String message) {
-    AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-    builder.setCancelable(false);
-    builder.setPositiveButton(getString(R.string.ok), null);
-    builder.setTitle(title);
-    builder.setMessage(message);
-    return builder;
-  }
-
-  /**
-   * Invoke this at the start of the verify server settings action
-   */
-  public void prepareForSyncAction() {
-    // remove any settings for a URL other than the server URL...
-
-    PropertiesSingleton props = ((IOdkAppPropertiesActivity) this.getActivity()).getProps();
-
-    String authType = props.getProperty(CommonToolProperties.KEY_AUTHENTICATION_TYPE);
-    if (authType == null) {
-      authType = getString(R.string.credential_type_none);
-    }
-
-    if (getString(R.string.credential_type_google_account).equals(authType)) {
-      authenticateGoogleAccount();
-    } else {
-      tickleInterface();
-    }
-  }
-
-  /**
-   * Hooked up to authorizeAccountButton's onClick in aggregate_activity.xml
-   */
-  public void authenticateGoogleAccount() {
-    WebLogger.getLogger(getAppName())
-        .d(TAG, "[" + getId() + "] [authenticateGoogleAccount] invalidated authtoken");
-    invalidateAuthToken(getActivity(), getAppName());
-
-    PropertiesSingleton props = CommonToolProperties.get(getActivity(), getAppName());
-    Intent i = new Intent(getActivity(), AccountInfoActivity.class);
-    Account account = new Account(props.getProperty(CommonToolProperties.KEY_ACCOUNT),
-        ACCOUNT_TYPE_G);
-    i.putExtra(IntentConsts.INTENT_KEY_APP_NAME, getAppName());
-    i.putExtra(AccountInfoActivity.INTENT_EXTRAS_ACCOUNT, account);
-    startActivityForResult(i, VerifyServerSettingsActivity.AUTHORIZE_ACCOUNT_RESULT_CODE);
   }
 
   public void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -265,24 +278,23 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
 
     if (requestCode == VerifyServerSettingsActivity.AUTHORIZE_ACCOUNT_RESULT_CODE) {
       if (resultCode == Activity.RESULT_CANCELED) {
-        invalidateAuthToken(getActivity(), getAppName());
-        verifyServerSettingsAction = VerifyServerSettingsActions.IDLE;
+        verifyViewModel.updateVerifyAction(VerifyServerSettingsActions.IDLE);
       }
-      tickleInterface();
+      postTaskToAccessSyncService();
     }
   }
 
-  private void tickleInterface() {
-    WebLogger.getLogger(getAppName()).d(TAG, "[" + getId() + "] [tickleInterface] started");
+  void postTaskToAccessSyncService() {
+    WebLogger.getLogger(getAppName()).d(TAG, "[" + getId() + "] [postTaskToAccessSyncService] started");
     Activity activity = getActivity();
-    if (activity == null) {
+    if (activity == null || !hasDialogBeenCreated() || !this.isResumed()) {
       // we are in transition -- do nothing
       WebLogger.getLogger(getAppName())
-          .d(TAG, "[" + getId() + "] [tickleInterface] activity == null");
+          .d(TAG, "[" + getId() + "] [postTaskToAccessSyncService] activity == null");
       handler.postDelayed(new Runnable() {
         @Override
         public void run() {
-          tickleInterface();
+          postTaskToAccessSyncService();
         }
       }, 100);
 
@@ -291,15 +303,15 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
     ((ISyncServiceInterfaceActivity) activity)
         .invokeSyncInterfaceAction(new DoSyncActionCallback() {
           @Override
-          public void doAction(OdkSyncServiceInterface syncServiceInterface)
+          public void doAction(IOdkSyncServiceInterface syncServiceInterface)
               throws RemoteException {
             if (syncServiceInterface != null) {
-              //          WebLogger.getLogger(getAppName()).d(TAG, "[" + getId() + "] [tickleInterface] syncServiceInterface != null");
+              //          WebLogger.getLogger(getAppName()).d(TAG, "[" + getId() + "] [postTaskToAccessSyncService] syncServiceInterface != null");
               final SyncStatus status = syncServiceInterface.getSyncStatus(getAppName());
               final SyncProgressEvent event = syncServiceInterface
                   .getSyncProgressEvent(getAppName());
               if (status == SyncStatus.SYNCING) {
-                verifyServerSettingsAction = VerifyServerSettingsActions.MONITOR_VERIFYING;
+                verifyViewModel.updateVerifyAction(VerifyServerSettingsActions.MONITOR_VERIFYING);
 
                 handler.post(new Runnable() {
                   @Override
@@ -311,10 +323,10 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
                 return;
               }
 
-              switch (verifyServerSettingsAction) {
+              switch (verifyViewModel.getCurrentAction()) {
               case VERIFY:
                 syncServiceInterface.verifyServerSettings(getAppName());
-                verifyServerSettingsAction = VerifyServerSettingsActions.MONITOR_VERIFYING;
+                verifyViewModel.updateVerifyAction(VerifyServerSettingsActions.MONITOR_VERIFYING);
 
                 handler.post(new Runnable() {
                   @Override
@@ -339,12 +351,12 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
               }
             } else {
               WebLogger.getLogger(getAppName())
-                  .d(TAG, "[" + getId() + "] [tickleInterface] syncServiceInterface == null");
+                  .d(TAG, "[" + getId() + "] [postTaskToAccessSyncService] syncServiceInterface == null");
               // The service is not bound yet so now we need to try again
               handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                  tickleInterface();
+                  postTaskToAccessSyncService();
                 }
               }, 100);
             }
@@ -352,9 +364,9 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
         });
   }
 
-  private void updateInterface() {
+  void updateInterface() {
     Activity activity = getActivity();
-    if (activity == null) {
+    if (activity == null || !hasDialogBeenCreated() || !this.isResumed()) {
       // we are in transition -- do nothing
       WebLogger.getLogger(getAppName())
           .w(TAG, "[" + getId() + "] [updateInterface] activity == null = return");
@@ -369,14 +381,14 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
     ((ISyncServiceInterfaceActivity) activity)
         .invokeSyncInterfaceAction(new DoSyncActionCallback() {
           @Override
-          public void doAction(OdkSyncServiceInterface syncServiceInterface)
+          public void doAction(IOdkSyncServiceInterface syncServiceInterface)
               throws RemoteException {
             if (syncServiceInterface != null) {
               final SyncStatus status = syncServiceInterface.getSyncStatus(getAppName());
               final SyncProgressEvent event = syncServiceInterface
                   .getSyncProgressEvent(getAppName());
               if (status == SyncStatus.SYNCING) {
-                verifyServerSettingsAction = VerifyServerSettingsActions.MONITOR_VERIFYING;
+                verifyViewModel.updateVerifyAction(VerifyServerSettingsActions.MONITOR_VERIFYING);
 
                 handler.post(new Runnable() {
                   @Override
@@ -388,12 +400,11 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
                 return;
               } else {
                 // request completed
-                verifyServerSettingsAction = VerifyServerSettingsActions.IDLE;
+                verifyViewModel.updateVerifyAction(VerifyServerSettingsActions.IDLE);
                 final SyncOverallResult result = syncServiceInterface.getSyncResult(getAppName());
                 handler.post(new Runnable() {
                   @Override
                   public void run() {
-                    dismissProgressDialog();
                     if (event.progressState == SyncProgressState.FINISHED) {
                       showOutcomeDialog(status, result);
                     }
@@ -414,115 +425,17 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
         });
   }
 
-  @Override
-  public void onSyncCompleted() {
-    Activity activity = getActivity();
-    WebLogger.getLogger(getAppName())
-        .i(TAG, "[" + getId() + "] [onSyncCompleted] after getActivity");
-    if (activity == null) {
-      // we are in transition -- do nothing
-      WebLogger.getLogger(getAppName())
-          .i(TAG, "[" + getId() + "] [onSyncCompleted] activity == null = return");
-      handler.postDelayed(new Runnable() {
-        @Override
-        public void run() {
-          onSyncCompleted();
-        }
-      }, 100);
-      return;
+  void syncCompletedAction(IOdkSyncServiceInterface syncServiceInterface) throws
+      RemoteException {
+    removeAnySyncNotification();
+    SyncStatus syncStatus =syncServiceInterface.getSyncStatus(getAppName());
+    boolean completed = syncServiceInterface.clearAppSynchronizer(getAppName());
+    if (!completed) {
+      throw new IllegalStateException(
+          "Could not remove AppSynchronizer for " + getAppName());
     }
-
-    ((ISyncServiceInterfaceActivity) activity)
-        .invokeSyncInterfaceAction(new DoSyncActionCallback() {
-          @Override
-          public void doAction(OdkSyncServiceInterface syncServiceInterface)
-              throws RemoteException {
-            WebLogger.getLogger(getAppName()).i(TAG, "[" + getId() + "] [onSyncCompleted] called");
-            if (syncServiceInterface != null) {
-              WebLogger.getLogger(getAppName()).i(TAG,
-                  "[" + getId() + "] [onSyncCompleted] and syncServiceInterface is not null");
-              boolean completed = syncServiceInterface.clearAppSynchronizer(getAppName());
-              if (!completed) {
-                throw new IllegalStateException(
-                    "Could not remove AppSynchronizer for " + getAppName());
-              }
-              getActivity().finish();
-              return;
-            } else {
-              WebLogger.getLogger(getAppName())
-                  .i(TAG, "[" + getId() + "] [onSyncCompleted] and syncServiceInterface is null");
-              handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                  onSyncCompleted();
-                }
-              }, 100);
-            }
-          }
-        });
-  }
-
-  public boolean areCredentialsConfigured() {
-    // verify that we have the necessary credentials
-    PropertiesSingleton props = CommonToolProperties.get(getActivity(), getAppName());
-    String authType = props.getProperty(CommonToolProperties.KEY_AUTHENTICATION_TYPE);
-    if (getString(R.string.credential_type_none).equals(authType)) {
-      return true;
-    }
-    if (getString(R.string.credential_type_username_password).equals(authType)) {
-      String username = props.getProperty(CommonToolProperties.KEY_USERNAME);
-      String password = props.getProperty(CommonToolProperties.KEY_PASSWORD);
-      if (username == null || username.length() == 0 || password == null
-          || password.length() == 0) {
-        SyncBaseActivity
-            .showAuthenticationErrorDialog(getActivity(), getString(R.string.sync_configure_username_password));
-        return false;
-      }
-      return true;
-    }
-    if (getString(R.string.credential_type_google_account).equals(authType)) {
-      String accountName = props.getProperty(CommonToolProperties.KEY_ACCOUNT);
-      if (accountName == null || accountName.length() == 0) {
-        SyncBaseActivity
-            .showAuthenticationErrorDialog(getActivity(), getString(R.string.sync_configure_google_account));
-        return false;
-      }
-      return true;
-    }
-    SyncBaseActivity.showAuthenticationErrorDialog(getActivity(), getString(R.string.sync_configure_credentials));
-    return false;
-  }
-
-  /**
-   * Hooked to syncNowButton's onClick in aggregate_activity.xml
-   */
-  public void onClickVerifyServerSettings(View v) {
-    WebLogger.getLogger(getAppName()).d(TAG,
-        "[" + getId() + "] [onClickVerifyServerSettings] timestamp: " + System.currentTimeMillis());
-    if (areCredentialsConfigured()) {
-      disableButtons();
-      verifyServerSettingsAction = VerifyServerSettingsActions.VERIFY;
-      prepareForSyncAction();
-    }
-  }
-
-  public static void invalidateAuthToken(Context context, String appName) {
-    PropertiesSingleton props = CommonToolProperties.get(context, appName);
-    AccountManager.get(context)
-        .invalidateAuthToken(ACCOUNT_TYPE_G, props.getProperty(CommonToolProperties.KEY_AUTH));
-    Map<String, String> properties = new HashMap<String, String>();
-    properties.put(CommonToolProperties.KEY_AUTH, null);
-    properties.put(CommonToolProperties.KEY_ROLES_LIST, "");
-    properties.put(CommonToolProperties.KEY_DEFAULT_GROUP, "");
-    properties.put(CommonToolProperties.KEY_USERS_LIST, "");
-    props.setProperties(properties);
-  }
-
-  @Override
-  public void onDestroy() {
-    super.onDestroy();
-    handler.removeCallbacksAndMessages(null);
-    WebLogger.getLogger(getAppName()).i(TAG, "[" + getId() + "] [onDestroy]");
+    perhapsEnableButtons();
+    performActionOnSyncComplete(syncStatus);
   }
 
   private void showProgressDialog(SyncStatus status, SyncProgressState progress, String message,
@@ -531,7 +444,7 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
       // we are tearing down or still initializing
       return;
     }
-    if (verifyServerSettingsAction == VerifyServerSettingsActions.MONITOR_VERIFYING) {
+    if (verifyViewModel.getCurrentAction() == VerifyServerSettingsActions.MONITOR_VERIFYING) {
 
       disableButtons();
 
@@ -540,31 +453,8 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
       }
 
       int id_title = R.string.verifying_server_settings;
+      showProgressDialog(getString(id_title), message, progressStep, maxStep);
 
-      // try to retrieve the active dialog
-      Fragment dialog = getFragmentManager().findFragmentByTag(PROGRESS_DIALOG_TAG);
-
-      if (dialog != null && ((DismissableProgressDialogFragment) dialog).getDialog() != null) {
-        ((DismissableProgressDialogFragment) dialog).getDialog().setTitle(id_title);
-        ((DismissableProgressDialogFragment) dialog).setMessage(message, progressStep, maxStep);
-      } else if (progressDialog != null && progressDialog.getDialog() != null) {
-        progressDialog.getDialog().setTitle(id_title);
-        progressDialog.setMessage(message, progressStep, maxStep);
-      } else {
-        if (progressDialog != null) {
-          dismissProgressDialog();
-        }
-        progressDialog = DismissableProgressDialogFragment
-            .newInstance(getString(id_title), message);
-
-        // If fragment is not visible an exception could be thrown
-        // TODO: Investigate a better way to handle this
-        try {
-          progressDialog.show(getFragmentManager(), PROGRESS_DIALOG_TAG);
-        } catch (IllegalStateException ise) {
-          ise.printStackTrace();
-        }
-      }
       if (status == SyncStatus.SYNCING || status == SyncStatus.NONE) {
         handler.postDelayed(new Runnable() {
           @Override
@@ -576,58 +466,14 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
     }
   }
 
-  private void dismissProgressDialog() {
-    if (getActivity() == null) {
-      // we are tearing down or still initializing
-      return;
-    }
-
-    // try to retrieve the active dialog
-    final Fragment dialog = getFragmentManager().findFragmentByTag(PROGRESS_DIALOG_TAG);
-
-    if (dialog != null && dialog != progressDialog) {
-      // the UI may not yet have resolved the showing of the dialog.
-      // use a handler to add the dismiss to the end of the queue.
-      handler.post(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            ((DismissableProgressDialogFragment) dialog).dismiss();
-          } catch (Exception e) {
-            // ignore... we tried!
-          }
-          perhapsEnableButtons();
-        }
-      });
-    }
-    if (progressDialog != null) {
-      final DismissableProgressDialogFragment scopedReference = progressDialog;
-      progressDialog = null;
-      // the UI may not yet have resolved the showing of the dialog.
-      // use a handler to add the dismiss to the end of the queue.
-      handler.post(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            scopedReference.dismiss();
-          } catch (Exception e) {
-            // ignore... we tried!
-          }
-          perhapsEnableButtons();
-        }
-      });
-    }
-  }
-
   private void showOutcomeDialog(SyncStatus status, SyncOverallResult result) {
     if (getActivity() == null) {
       // we are tearing down or still initializing
       return;
     }
-    if (verifyServerSettingsAction == VerifyServerSettingsActions.IDLE) {
+    if (verifyViewModel.getCurrentAction() == VerifyServerSettingsActions.IDLE) {
 
       disableButtons();
-
       String message;
       int id_title;
       switch (status) {
@@ -686,83 +532,105 @@ public class VerifyServerSettingsFragment extends Fragment implements ISyncOutco
         message = getString(R.string.verify_server_setttings_successful_text);
         break;
       }
-      // try to retrieve the active dialog
-      Fragment dialog = getFragmentManager().findFragmentByTag(OUTCOME_DIALOG_TAG);
+      createAlertDialog(getString(id_title), message);
+    }
+  }
 
-      if (dialog != null && ((DismissableOutcomeDialogFragment) dialog).getDialog() != null) {
-        ((DismissableOutcomeDialogFragment) dialog).getDialog().setTitle(id_title);
-        ((DismissableOutcomeDialogFragment) dialog).setMessage(message);
-      } else if (outcomeDialog != null && outcomeDialog.getDialog() != null) {
-        outcomeDialog.getDialog().setTitle(id_title);
-        outcomeDialog.setMessage(message);
-      } else {
-        if (outcomeDialog != null) {
-          dismissOutcomeDialog();
-        }
-        outcomeDialog = DismissableOutcomeDialogFragment.newInstance(getString(id_title), message,
-            (status == SyncStatus.SYNC_COMPLETE
-                || status == SyncStatus.SYNC_COMPLETE_PENDING_ATTACHMENTS),
-            VerifyServerSettingsFragment.NAME);
+  private void performActionOnSyncComplete(SyncStatus syncStatus){
+    PropertiesSingleton props = getProps();
+    Map<String, String> properties= new HashMap<>();
+    switch (syncStatus){
+      case SERVER_IS_NOT_ODK_SERVER:{
+        properties.putAll(UpdateServerSettingsFragment.getUpdateUrlProperties(verifyViewModel.getUrl()));
+        props.setProperties(properties);
+        updateViewModelWithProps();
 
-        // If fragment is not visible an exception could be thrown
-        // TODO: Investigate a better way to handle this
-        try {
-          outcomeDialog.show(getFragmentManager(), OUTCOME_DIALOG_TAG);
-        } catch (IllegalStateException ise) {
-          ise.printStackTrace();
+        DialogInterface.OnClickListener onClickListener = (dialog, which) -> navController.navigate(R.id.updateServerSettingsFragmentV);
+        showAlertDialog(
+                "Server is not an ODK Server",
+                "Would you like to change the Server URL?",
+                onClickListener);
+        break;
+      }
+      case AUTHENTICATION_ERROR:{
+        properties.put(CommonToolProperties.KEY_IS_SERVER_VERIFIED, Boolean.toString(true));
+
+        if(verifyViewModel.getVerifyType().equals("user")){
+          properties.put(CommonToolProperties.KEY_IS_USER_AUTHENTICATED, Boolean.toString(false));
+          props.setProperties(properties);
+          updateViewModelWithProps();
+
+          DialogInterface.OnClickListener onClickListener = (dialog, which) -> {
+            Intent signInIntent = new Intent(requireActivity(), LoginActivity.class);
+            signInIntent.putExtra(IntentConsts.INTENT_KEY_APP_NAME, getAppName());
+            signInIntent.putExtra(Constants.LOGIN_INTENT_TYPE_KEY, Constants.LOGIN_TYPE_UPDATE_CREDENTIALS);
+            startActivity(signInIntent);
+          };
+
+          showAlertDialog("Invalid User Credentials",
+                  "Would you like to update the User Credentials?", onClickListener);
+
+        } else if(verifyViewModel.getVerifyType().equals("server")) {
+          properties.put(CommonToolProperties.KEY_IS_ANONYMOUS_SIGN_IN_USED, Boolean.toString(true));
+          properties.put(CommonToolProperties.KEY_IS_ANONYMOUS_ALLOWED, Boolean.toString(false));
+          if(verifyViewModel.getUserState()==UserState.AUTHENTICATED_USER)
+            properties.put(CommonToolProperties.KEY_AUTHENTICATION_TYPE,getString(R.string.credential_type_username_password));
+          props.setProperties(properties);
+          updateViewModelWithProps();
+
+          DialogInterface.OnClickListener onClickListenerA = (dialog, which) -> {
+            ODKServicesPropertyUtils.clearActiveUser(getProps());
+            updateViewModelWithProps();
+          };
+
+          if(verifyViewModel.getUserState() == UserState.ANONYMOUS){
+            showAlertDialog("Server Does Not Support Anonymous",
+                    "Would you like to logout as Anonymous now?",
+                    onClickListenerA);
+          } else {
+            AlertDialog alertDialog = new AlertDialog
+                    .Builder(requireActivity())
+                    .setTitle("Server Verified")
+                    .setMessage("Server does not support Anonymous Access")
+                    .setPositiveButton("OK",(dialog, which) -> dialog.dismiss())
+                    .setCancelable(true)
+                    .create();
+            alertDialog.setCanceledOnTouchOutside(true);
+            alertDialog.show();
+          }
         }
+        break;
+      }
+      case SYNC_COMPLETE:{
+        properties.put(CommonToolProperties.KEY_IS_SERVER_VERIFIED, Boolean.toString(true));
+
+        if(verifyViewModel.getVerifyType().equals("server")){
+          properties.put(CommonToolProperties.KEY_IS_ANONYMOUS_SIGN_IN_USED, Boolean.toString(true));
+          properties.put(CommonToolProperties.KEY_IS_ANONYMOUS_ALLOWED, Boolean.toString(true));
+          if(verifyViewModel.getUserState()==UserState.AUTHENTICATED_USER)
+            properties.put(CommonToolProperties.KEY_AUTHENTICATION_TYPE,getString(R.string.credential_type_username_password));
+        } else if (verifyViewModel.getVerifyType().equals("user")) {
+          properties.put(CommonToolProperties.KEY_IS_USER_AUTHENTICATED, Boolean.toString(true));
+        }
+
+        props.setProperties(properties);
+        updateViewModelWithProps();
+        break;
       }
     }
+    verifyViewModel.setVerifyType("none");
   }
 
-  private void dismissOutcomeDialog() {
-    if (getActivity() == null) {
-      // we are tearing down or still initializing
-      return;
-    }
-
-    // try to retrieve the active dialog
-    final Fragment dialog = getFragmentManager().findFragmentByTag(PROGRESS_DIALOG_TAG);
-
-    if (dialog != null && dialog != outcomeDialog) {
-      // the UI may not yet have resolved the showing of the dialog.
-      // use a handler to add the dismiss to the end of the queue.
-      handler.post(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            ((DismissableOutcomeDialogFragment) dialog).dismiss();
-          } catch (Exception e) {
-            // ignore... we tried!
-          }
-          perhapsEnableButtons();
-        }
-      });
-    }
-    if (outcomeDialog != null) {
-      final DismissableOutcomeDialogFragment scopedReference = outcomeDialog;
-      outcomeDialog = null;
-      // the UI may not yet have resolved the showing of the dialog.
-      // use a handler to add the dismiss to the end of the queue.
-      handler.post(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            scopedReference.dismiss();
-          } catch (Exception e) {
-            // ignore... we tried!
-          }
-          perhapsEnableButtons();
-        }
-      });
-    }
+  public void showAlertDialog(String title, String message, DialogInterface.OnClickListener onPositiveButtonClick){
+    AlertDialog alertDialog = new AlertDialog
+            .Builder(requireActivity())
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("Yes",onPositiveButtonClick)
+            .setNegativeButton("No", (dialog, which) -> dialog.dismiss())
+            .setCancelable(true)
+            .create();
+    alertDialog.setCanceledOnTouchOutside(true);
+    alertDialog.show();
   }
-
-  public String getAppName() {
-    if (mAppName == null) {
-      throw new IllegalStateException("appName not yet initialized");
-    }
-    return mAppName;
-  }
-
 }

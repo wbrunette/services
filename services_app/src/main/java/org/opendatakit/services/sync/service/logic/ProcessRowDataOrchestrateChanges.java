@@ -18,7 +18,11 @@ package org.opendatakit.services.sync.service.logic;
 import org.opendatakit.aggregate.odktables.rest.ElementDataType;
 import org.opendatakit.aggregate.odktables.rest.SyncState;
 import org.opendatakit.aggregate.odktables.rest.entity.TableResource;
-import org.opendatakit.database.data.*;
+import org.opendatakit.database.data.BaseTable;
+import org.opendatakit.database.data.ColumnDefinition;
+import org.opendatakit.database.data.OrderedColumns;
+import org.opendatakit.database.data.Row;
+import org.opendatakit.database.data.TableDefinitionEntry;
 import org.opendatakit.database.queries.BindArgs;
 import org.opendatakit.database.service.DbHandle;
 import org.opendatakit.exception.ServicesAvailabilityException;
@@ -184,9 +188,9 @@ public class ProcessRowDataOrchestrateChanges {
                   + " FROM " + tableId, null, null, null );
           if ( t.getNumberOfRows() == 1 ) {
             Row row = t.getRowAtIndex(0);
-            String checkpointStr = row.getDataByKey("n_checkpoints");
-            String dblconflictsStr = row.getDataByKey("n_dblconflicts");
-            String rowsStr = row.getDataByKey("n_rows");
+            String checkpointStr = row.getRawStringByKey("n_checkpoints");
+            String dblconflictsStr = row.getRawStringByKey("n_dblconflicts");
+            String rowsStr = row.getRawStringByKey("n_rows");
             checkpoints = (checkpointStr == null) ? 0 : Integer.valueOf(checkpointStr);
             conflicts = (dblconflictsStr == null) ? 0 : Integer.valueOf(dblconflictsStr) / 2;
             rows = (rowsStr == null) ? 0 : Integer.valueOf(rowsStr);

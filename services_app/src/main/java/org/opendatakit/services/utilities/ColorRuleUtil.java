@@ -15,17 +15,17 @@
  */
 package org.opendatakit.services.utilities;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import android.graphics.Color;
 
 import org.opendatakit.aggregate.odktables.rest.SyncState;
 import org.opendatakit.data.ColorRule;
 import org.opendatakit.provider.DataTableColumns;
 
-import android.graphics.Color;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  *

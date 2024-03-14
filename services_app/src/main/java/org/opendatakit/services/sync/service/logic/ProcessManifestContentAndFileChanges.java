@@ -15,27 +15,38 @@
  */
 package org.opendatakit.services.sync.service.logic;
 
-import org.opendatakit.aggregate.odktables.rest.entity.*;
+import org.opendatakit.aggregate.odktables.rest.entity.OdkTablesFileManifestEntry;
 import org.opendatakit.database.data.ColumnDefinition;
-import org.opendatakit.database.data.Row;
 import org.opendatakit.database.service.DbHandle;
 import org.opendatakit.exception.ServicesAvailabilityException;
-import org.opendatakit.provider.DataTableColumns;
-import org.opendatakit.utilities.ODKFileUtils;
 import org.opendatakit.logging.WebLogger;
 import org.opendatakit.logging.WebLoggerIf;
+import org.opendatakit.provider.DataTableColumns;
 import org.opendatakit.services.R;
-import org.opendatakit.sync.service.SyncAttachmentState;
 import org.opendatakit.services.sync.service.SyncExecutionContext;
+import org.opendatakit.services.sync.service.exceptions.ClientDetectedVersionMismatchedServerResponseException;
+import org.opendatakit.services.sync.service.exceptions.HttpClientWebException;
+import org.opendatakit.services.sync.service.exceptions.IncompleteServerConfigFileBodyMissingException;
+import org.opendatakit.sync.service.SyncAttachmentState;
 import org.opendatakit.sync.service.SyncProgressState;
-import org.opendatakit.services.sync.service.exceptions.*;
+import org.opendatakit.sync.service.logic.CommonFileAttachmentTerms;
+import org.opendatakit.sync.service.logic.FileManifestDocument;
+import org.opendatakit.utilities.ODKFileUtils;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Extraction of manifest and file-update logic for app-level and table-level config files
@@ -55,6 +66,11 @@ class ProcessManifestContentAndFileChanges {
    * row-level instance files.
    */
   private static final long MAX_BATCH_SIZE = 10485760;
+
+  /**
+   * Default maximum number of times to re-download a file before giving up
+   */
+  private static final int DEFAULT_DL_MAX_RETRY_COUNT = 3;
 
 
   private final SyncExecutionContext sc;
@@ -624,12 +640,13 @@ class ProcessManifestContentAndFileChanges {
       ODKFileUtils.createFolder(folderPath);
       if (!localFile.exists()) {
         // the file doesn't exist on the system
-        // filesToDL.add(localFile);
         boolean success = false;
         try {
-          sc.getSynchronizer().downloadFile(localFile, uri);
-          updateFileSyncETag(uri, tableId, localFile.lastModified(), entry.md5hash);
-          success = true;
+          success = downloadFile(localFile, uri, entry.md5hash);
+
+          if (success) {
+            updateFileSyncETag(uri, tableId, localFile.lastModified(), entry.md5hash);
+          }
         } finally {
           if ( !success ) {
             log.e(LOGTAG, "trouble downloading file " + entry.filename + " + for first time");
@@ -657,9 +674,11 @@ class ProcessManifestContentAndFileChanges {
           // it's not up to date, we need to download it.
           boolean success = false;
           try {
-            sc.getSynchronizer().downloadFile(localFile, uri);
-            updateFileSyncETag(uri, tableId, localFile.lastModified(), md5hash);
-            success = true;
+            success = downloadFile(localFile, uri, entry.md5hash);
+
+            if (success) {
+              updateFileSyncETag(uri, tableId, localFile.lastModified(), entry.md5hash);
+            }
           } finally {
             if ( !success ) {
               log.e(LOGTAG, "trouble downloading new version of file " + entry.filename);
@@ -694,7 +713,7 @@ class ProcessManifestContentAndFileChanges {
    * @throws ServicesAvailabilityException
    */
   public boolean syncRowLevelFileAttachments(String serverInstanceFileUri, String tableId,
-      org.opendatakit.database.data.Row localRow,
+      org.opendatakit.database.data.TypedRow localRow,
       ArrayList<ColumnDefinition> fileAttachmentColumns,
       SyncAttachmentState attachmentState) throws HttpClientWebException,
       IOException, ServicesAvailabilityException  {
@@ -704,10 +723,10 @@ class ProcessManifestContentAndFileChanges {
     ArrayList<String> uriFragments = new ArrayList<String>();
 
     StringBuilder b = new StringBuilder();
-    b.append(localRow.getDataByKey(DataTableColumns.ROW_ETAG));
+    b.append(localRow.getRawStringByKey(DataTableColumns.ROW_ETAG));
     // extract the non-null uriFragments here...
     for ( ColumnDefinition cd : fileAttachmentColumns) {
-      String uriFragment = localRow.getDataByKey(cd.getElementKey());
+      String uriFragment = localRow.getRawStringByKey(cd.getElementKey());
       if ( uriFragment != null) {
         uriFragments.add(uriFragment);
         b.append("<").append(cd.getElementKey()).append("|").append(uriFragment).append(">");
@@ -737,7 +756,7 @@ class ProcessManifestContentAndFileChanges {
     }
 
     // 1) Get this row's instanceId (rowId)
-    String instanceId = localRow.getDataByKey(DataTableColumns.ID);
+    String instanceId = localRow.getRawStringByKey(DataTableColumns.ID);
     log.i(LOGTAG, "syncRowLevelFileAttachments requesting a row-level manifest for " + instanceId);
 
 
@@ -951,6 +970,50 @@ class ProcessManifestContentAndFileChanges {
     }
   }
 
+  /**
+   * Wrapper around downloadFile with the default maximum number
+   * of retries set to DEFAULT_DL_MAX_RETRY_COUNT
+   *
+   * @param destFile
+   * @param downloadUri
+   * @param expectedMd5Hash
+   * @return true if the download was successful, false if otherwise
+   * @throws IOException
+   */
+  private boolean downloadFile(File destFile, URI downloadUri, String expectedMd5Hash)
+      throws IOException {
+    return downloadFile(destFile, downloadUri, expectedMd5Hash, DEFAULT_DL_MAX_RETRY_COUNT);
+  }
+
+  /**
+   * Wrapper around Synchronizer.downloadFile that invokes that method first
+   * then checks the downloaded file's integrity.
+   *
+   * Negative maxRetry is considered as 0.
+   *
+   * @param destFile
+   * @param downloadUri
+   * @param expectedMd5Hash
+   * @param maxRetry
+   * @return true if the download was successful, false if otherwise
+   * @throws IOException
+   */
+  private boolean downloadFile(File destFile, URI downloadUri, String expectedMd5Hash, int maxRetry)
+      throws IOException {
+    if (maxRetry < 0) {
+      maxRetry = 0;
+    }
+
+    boolean hashMatch;
+
+    do {
+      sc.getSynchronizer().downloadFile(destFile, downloadUri);
+      hashMatch = ODKFileUtils.getMd5Hash(sc.getAppName(), destFile).equals(expectedMd5Hash);
+    } while (maxRetry-- > 0 && !hashMatch);
+
+    return hashMatch;
+  }
+
   /**********************************************************************************
    *
    * Database interactions
@@ -1023,7 +1086,7 @@ class ProcessManifestContentAndFileChanges {
    * @return
    * @throws ServicesAvailabilityException
    */
-  private String getManifestSyncETag(String tableId) throws ServicesAvailabilityException {
+  public String getManifestSyncETag(String tableId) throws ServicesAvailabilityException {
 
     URI fileManifestUri;
 

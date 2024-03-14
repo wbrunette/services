@@ -15,35 +15,41 @@
  */
 package org.opendatakit.services.resolve.checkpoint;
 
-import android.content.AsyncTaskLoader;
 import android.content.Context;
 import android.database.Cursor;
-import org.opendatakit.database.RoleConsts;
+
+import androidx.loader.content.AsyncTaskLoader;
+
 import org.opendatakit.aggregate.odktables.rest.KeyValueStoreConstants;
-import org.opendatakit.database.data.OrderedColumns;
-import org.opendatakit.database.data.UserTable;
 import org.opendatakit.database.DatabaseConstants;
+import org.opendatakit.database.RoleConsts;
+import org.opendatakit.database.data.BaseTable;
+import org.opendatakit.database.data.KeyValueStoreEntry;
+import org.opendatakit.database.data.OrderedColumns;
+import org.opendatakit.database.data.TypedRow;
+import org.opendatakit.database.data.UserTable;
+import org.opendatakit.database.service.DbHandle;
+import org.opendatakit.database.utilities.QueryUtil;
+import org.opendatakit.logging.WebLogger;
 import org.opendatakit.properties.CommonToolProperties;
 import org.opendatakit.properties.PropertiesSingleton;
-import org.opendatakit.services.database.OdkConnectionFactorySingleton;
-import org.opendatakit.services.database.OdkConnectionInterface;
 import org.opendatakit.provider.DataTableColumns;
 import org.opendatakit.provider.FormsColumns;
-import org.opendatakit.utilities.NameUtil;
-import org.opendatakit.utilities.LocalizationUtils;
-import org.opendatakit.services.database.utlities.ODKDatabaseImplUtils;
-import org.opendatakit.logging.WebLogger;
-import org.opendatakit.database.data.KeyValueStoreEntry;
-import org.opendatakit.database.service.DbHandle;
-import org.opendatakit.database.data.Row;
-import org.opendatakit.database.data.BaseTable;
-import org.opendatakit.database.utilities.QueryUtil;
-import org.opendatakit.services.utilities.ActiveUserAndLocale;
+import org.opendatakit.services.R;
+import org.opendatakit.services.database.OdkConnectionFactorySingleton;
+import org.opendatakit.services.database.OdkConnectionInterface;
+import org.opendatakit.services.database.utilities.ODKDatabaseImplUtils;
 import org.opendatakit.services.resolve.views.components.ResolveActionList;
 import org.opendatakit.services.resolve.views.components.ResolveRowEntry;
-import org.opendatakit.services.R;
+import org.opendatakit.services.utilities.ActiveUserAndLocale;
+import org.opendatakit.utilities.LocalizationUtils;
+import org.opendatakit.utilities.NameUtil;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * @author mitchellsundt@gmail.com
@@ -131,8 +137,8 @@ class OdkResolveCheckpointRowLoader extends AsyncTaskLoader<ArrayList<ResolveRow
         // resolve the automatically-resolvable ones
         // (the ones that differ only in their metadata).
         for (int i = 0; i < table.getNumberOfRows(); ++i) {
-          Row row = table.getRowAtIndex(i);
-          String rowId = row.getDataByKey(DataTableColumns.ID);
+          TypedRow row = table.getRowAtIndex(i);
+          String rowId = row.getRawStringByKey(DataTableColumns.ID);
 
           OdkResolveCheckpointFieldLoader loader = new OdkResolveCheckpointFieldLoader(getContext(),
               mAppName, mTableId, rowId);
@@ -174,9 +180,9 @@ class OdkResolveCheckpointRowLoader extends AsyncTaskLoader<ArrayList<ResolveRow
           ids.add(table.getRowId(i));
         }
         for (int i = 0; i < unprivilegedTable.getNumberOfRows(); ++i) {
-          Row theRow = unprivilegedTable.getRowAtIndex(i);
+          TypedRow theRow = unprivilegedTable.getRowAtIndex(i);
           // only display a checkpoint if the user is able to modify the row
-          if (theRow.getDataByKey(DataTableColumns.EFFECTIVE_ACCESS).contains("w")) {
+          if (theRow.getRawStringByKey(DataTableColumns.EFFECTIVE_ACCESS).contains("w")) {
             ids.remove(unprivilegedTable.getRowId(i));
           }
         }
@@ -293,9 +299,9 @@ class OdkResolveCheckpointRowLoader extends AsyncTaskLoader<ArrayList<ResolveRow
 
     ArrayList<ResolveRowEntry> results = new ArrayList<ResolveRowEntry>();
     for (int i = 0; i < table.getNumberOfRows(); i++) {
-      Row row = table.getRowAtIndex(i);
-      String rowId = row.getDataByKey(DataTableColumns.ID);
-      String instanceName = row.getDataByKey(nameToUse.instanceName);
+      TypedRow row = table.getRowAtIndex(i);
+      String rowId = row.getRawStringByKey(DataTableColumns.ID);
+      String instanceName = row.getRawStringByKey(nameToUse.instanceName);
       ResolveRowEntry re = new ResolveRowEntry(rowId,
           getContext().getString(R.string.resolve_row_display_name, formDisplayName, instanceName));
       results.add(re);

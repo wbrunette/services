@@ -14,13 +14,15 @@
 
 package org.opendatakit.services.preferences.fragments;
 
-import android.app.LoaderManager;
-import android.content.AsyncTaskLoader;
 import android.content.Context;
-import android.content.Loader;
 import android.os.Bundle;
-import android.preference.ListPreference;
 import android.util.AttributeSet;
+
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.AsyncTaskLoader;
+import androidx.loader.content.Loader;
+import androidx.preference.ListPreference;
+
 import org.opendatakit.consts.IntentConsts;
 import org.opendatakit.logging.WebLogger;
 import org.opendatakit.properties.CommonToolProperties;
@@ -29,7 +31,11 @@ import org.opendatakit.services.R;
 import org.opendatakit.utilities.LocalizationUtils;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * Holds the list of commonTranslations.js locales and a "default to system locale" option.
@@ -132,7 +138,16 @@ public class CommonTranslationsLocaleScreen extends ListPreference {
       if (commonLocales != null) {
         for (Map<String, Object> localeEntry : commonLocales) {
           String localeName = (String) localeEntry.get("name");
-          Object displayLocale = ((Map<String, Object>) localeEntry.get("display")).get("locale");
+          if ( localeName == null ) {
+            throw new IllegalStateException("expected name field in locale entry");
+          }
+          Object obj = localeEntry.get("display");
+          if ( obj == null || !(obj instanceof Map)) {
+            throw new IllegalStateException("expected display object");
+          }
+          @SuppressWarnings("unchecked")
+          Map<String, Object> displayObject = (Map<String, Object>) obj;
+          Object displayLocale = displayObject.get("locale");
           String localization = LocalizationUtils
               .getLocalizationFromMap(props.getAppName(), null, currentLocale, displayLocale);
           if (localization == null) {

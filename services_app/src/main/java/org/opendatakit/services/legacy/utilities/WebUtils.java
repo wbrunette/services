@@ -16,8 +16,7 @@ package org.opendatakit.services.legacy.utilities;
 
 import android.text.format.DateFormat;
 
-import org.apache.commons.io.Charsets;
-import org.apache.commons.lang3.CharEncoding;
+import org.opendatakit.consts.CharsetConsts;
 import org.opendatakit.httpclientandroidlib.Header;
 import org.opendatakit.httpclientandroidlib.HttpEntity;
 import org.opendatakit.httpclientandroidlib.HttpRequest;
@@ -44,6 +43,7 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -220,7 +220,7 @@ public final class WebUtils {
       HttpContext localContext, HttpClient httpclient, String auth) {
     URI u = null;
     try {
-      URL url = new URL(URLDecoder.decode(urlString, CharEncoding.UTF_8));
+      URL url = new URL(URLDecoder.decode(urlString, StandardCharsets.UTF_8.name()));
       u = url.toURI();
     } catch (Exception e) {
       e.printStackTrace();
@@ -272,7 +272,7 @@ public final class WebUtils {
         InputSource iss = null;
         try {
           is = entity.getContent();
-          isr = new InputStreamReader(is, Charsets.UTF_8);
+          isr = new InputStreamReader(is, CharsetConsts.UTF_8);
           iss = new InputSource(isr);
           DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
           dbf.setNamespaceAware(true);

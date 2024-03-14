@@ -15,22 +15,24 @@
  */
 package org.opendatakit.services.sync.service;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+
+import org.opendatakit.application.IToolAware;
 import org.opendatakit.consts.IntentConsts;
+import org.opendatakit.logging.WebLogger;
 import org.opendatakit.sync.service.SyncAttachmentState;
 import org.opendatakit.sync.service.SyncOverallResult;
 import org.opendatakit.sync.service.SyncProgressEvent;
 import org.opendatakit.sync.service.SyncStatus;
 import org.opendatakit.utilities.ODKFileUtils;
-import org.opendatakit.logging.WebLogger;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class OdkSyncService extends Service {
 
@@ -49,14 +51,7 @@ public class OdkSyncService extends Service {
   // Used for logging
   private static final String TAG = OdkSyncService.class.getSimpleName();
 
-  // Time Unit: milliseconds.
-  // 5 minutes. Amount of time to hold onto the details of a sync outcome.
-  // after this amount of time, if there are no outstanding sync actions
-  // and if there are no active bindings, then the sync service will shut
-  // down.
-  public static final long RETENTION_PERIOD = 300000L;
-
-  private OdkSyncServiceInterfaceImpl serviceInterface;
+  private IOdkSyncServiceInterfaceImpl serviceInterface;
   private GlobalSyncNotificationManager notificationManager;
   private ScheduledExecutorService shutdownTester;
 
@@ -116,7 +111,8 @@ public class OdkSyncService extends Service {
       startService(bind_intent);
       // and schedule a periodic executor to test whether it is safe to stop.
       shutdownTester.scheduleWithFixedDelay(shutdownActor,
-          RETENTION_PERIOD / 5, RETENTION_PERIOD / 5, TimeUnit.MILLISECONDS);
+          GlobalSyncNotificationManager.RETENTION_PERIOD / 5,
+          GlobalSyncNotificationManager.RETENTION_PERIOD / 5, TimeUnit.MILLISECONDS);
     }
   }
 
@@ -141,8 +137,8 @@ public class OdkSyncService extends Service {
 
   @Override
   public void onCreate() {
-    serviceInterface = new OdkSyncServiceInterfaceImpl(this);
-    notificationManager = new GlobalSyncNotificationManager(this);
+    serviceInterface = new IOdkSyncServiceInterfaceImpl(this);
+    notificationManager = new GlobalSyncNotificationManagerImpl(this);
     shutdownTester = Executors.newSingleThreadScheduledExecutor();
   }
 
@@ -194,7 +190,10 @@ public class OdkSyncService extends Service {
     synchronized (syncs) {
       AppSynchronizer sync = syncs.get(appName);
       if (sync == null) {
-        sync = new AppSynchronizer(this, appName, notificationManager);
+        sync = new AppSynchronizer(this.getApplicationContext(),
+            ((IToolAware) this.getApplication()).getVersionCodeString(),
+            appName,
+            notificationManager);
         syncs.put(appName, sync);
       }
       return sync;

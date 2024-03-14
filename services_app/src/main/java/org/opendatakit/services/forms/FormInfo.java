@@ -14,22 +14,21 @@
 
 package org.opendatakit.services.forms;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-
-import org.opendatakit.provider.FormsColumns;
-import org.opendatakit.database.utilities.CursorUtils;
-import org.opendatakit.utilities.ODKFileUtils;
-
-import android.content.Context;
 import android.database.Cursor;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
+
+import org.opendatakit.database.utilities.CursorUtils;
 import org.opendatakit.logging.WebLogger;
+import org.opendatakit.provider.FormsColumns;
+import org.opendatakit.utilities.ODKFileUtils;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Class to hold information about a form. This holds the data fields that are
@@ -177,12 +176,11 @@ public class FormInfo {
 
   /**
    *
-   * @param c
    * @param appName
    * @param formDefFile
    */
   @SuppressWarnings("unchecked")
-  public FormInfo(Context c, String appName, File formDefFile) {
+  public FormInfo(String appName, File formDefFile) {
 
     // save the appName
     this.appName = appName;

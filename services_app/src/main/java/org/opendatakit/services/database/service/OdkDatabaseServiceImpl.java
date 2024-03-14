@@ -16,9 +16,15 @@ package org.opendatakit.services.database.service;
 
 import android.content.ContentValues;
 import android.content.Context;
+
 import org.opendatakit.aggregate.odktables.rest.SyncState;
 import org.opendatakit.database.RoleConsts;
-import org.opendatakit.database.data.*;
+import org.opendatakit.database.data.BaseTable;
+import org.opendatakit.database.data.ColumnList;
+import org.opendatakit.database.data.KeyValueStoreEntry;
+import org.opendatakit.database.data.OrderedColumns;
+import org.opendatakit.database.data.TableDefinitionEntry;
+import org.opendatakit.database.data.TableMetaDataEntries;
 import org.opendatakit.database.queries.BindArgs;
 import org.opendatakit.database.queries.QueryBounds;
 import org.opendatakit.database.service.DbHandle;
@@ -32,8 +38,9 @@ import org.opendatakit.properties.CommonToolProperties;
 import org.opendatakit.properties.PropertiesSingleton;
 import org.opendatakit.services.database.OdkConnectionFactorySingleton;
 import org.opendatakit.services.database.OdkConnectionInterface;
-import org.opendatakit.services.database.utlities.ODKDatabaseImplUtils;
-import org.opendatakit.services.database.utlities.SyncETagsUtils;
+import org.opendatakit.services.database.utilities.ODKDatabaseImplUtils;
+import org.opendatakit.services.database.utilities.ProviderUtils;
+import org.opendatakit.services.database.utilities.SyncETagsUtils;
 import org.opendatakit.services.utilities.ODKServicesPropertyUtils;
 
 import java.util.ArrayList;
@@ -46,7 +53,7 @@ import java.util.List;
  * @author mitchellsundt@gmail.com
  */
 
-public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
+public final class OdkDatabaseServiceImpl implements InternalUserDbInterface {
 
    private Context context;
 
@@ -97,7 +104,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
    * Return the active user or "anonymous" if the user
    * has not been authenticated against the server.
    *
-   * @param appName
+   * @param appName the app name
    *
    * @return the user reported from the server or "anonymous" if
    * server authentication has not been completed.
@@ -116,7 +123,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
    * or if the server settings specify to use an anonymous user,
    * then return an empty string.
    *
-   * @param appName
+   * @param appName the app name
    *
    * @return empty string or JSON serialization of an array of ROLES. See RoleConsts for possible values.
    */
@@ -141,7 +148,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
    * the current user. If the user is syncing anonymously with the
    * server, this returns an empty string.
    *
-   * @param appName
+   * @param appName the app name
    *
    * @return null or JSON serialization of an array of objects
    * structured as { "user_id": "...", "full_name": "...", "roles": ["...",...] }
@@ -220,9 +227,9 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
   /**
    * Create a local only table and prepend the given id with an "L_"
    *
-   * @param appName
-   * @param dbHandleName
-   * @param tableId
+   * @param appName the app name
+   * @param dbHandleName a database handle to use
+   * @param tableId the table to update
    * @param columns
    * @return
    */
@@ -253,9 +260,9 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
   /**
    * Drop the given local only table
    *
-   * @param appName
-   * @param dbHandleName
-   * @param tableId
+   * @param appName the app name
+   * @param dbHandleName a database handle to use
+   * @param tableId the table to update
    */
    @Override public void deleteLocalOnlyTable(String appName, DbHandle dbHandleName, String tableId)
        {
@@ -280,9 +287,9 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
   /**
    * Insert a row into a local only table
    *
-   * @param appName
-   * @param dbHandleName
-   * @param tableId
+   * @param appName the app name
+   * @param dbHandleName a database handle to use
+   * @param tableId the table to update
    * @param rowValues
    * @throws ActionNotAuthorizedException
    */
@@ -309,15 +316,15 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
   /**
    * Update a row in a local only table
    *
-   * @param appName
-   * @param dbHandleName
-   * @param tableId
+   * @param appName the app name
+   * @param dbHandleName a database handle to use
+   * @param tableId the table to update
    * @param rowValues
    * @param whereClause
    * @param bindArgs
    * @throws ActionNotAuthorizedException
    */
-   @Override public void updateLocalOnlyRow(String appName, DbHandle dbHandleName, String tableId,
+   @Override public void updateLocalOnlyRows(String appName, DbHandle dbHandleName, String tableId,
        ContentValues rowValues, String whereClause, BindArgs bindArgs)
        {
 
@@ -344,14 +351,14 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
   /**
    * Delete a row in a local only table
    *
-   * @param appName
-   * @param dbHandleName
-   * @param tableId
+   * @param appName the app name
+   * @param dbHandleName a database handle to use
+   * @param tableId the table to update
    * @param whereClause
    * @param bindArgs
    * @throws ActionNotAuthorizedException
    */
-   @Override public void deleteLocalOnlyRow(String appName, DbHandle dbHandleName, String tableId,
+   @Override public void deleteLocalOnlyRows(String appName, DbHandle dbHandleName, String tableId,
        String whereClause, BindArgs bindArgs) {
 
       OdkConnectionInterface db = null;
@@ -377,9 +384,9 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
   /**
    * SYNC Only. ADMIN Privileges
    *
-   * @param appName
-   * @param dbHandleName
-   * @param tableId
+   * @param appName the app name
+   * @param dbHandleName a database handle to use
+   * @param tableId the table to update
    * @param schemaETag
    * @param tableInstanceFilesUri
      */
@@ -593,7 +600,33 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
             db.releaseReference();
          }
       }
+
+      ProviderUtils.notifyTablesProviderListener(context, appName, tableId);
    }
+
+  @Override public boolean rescanTableFormDefs(String appName, DbHandle dbHandleName,
+                                              String tableId) {
+
+    OdkConnectionInterface db = null;
+
+    boolean outcome = false;
+    try {
+      // +1 referenceCount if db is returned (non-null)
+      db = OdkConnectionFactorySingleton.getOdkConnectionFactoryInterface()
+          .getConnection(appName, dbHandleName);
+      outcome = ODKDatabaseImplUtils.get().rescanTableFormDefs(db, tableId);
+    } finally {
+      if (db != null) {
+        // release the reference...
+        // this does not necessarily close the db handle
+        // or terminate any pending transaction
+        db.releaseReference();
+      }
+    }
+
+    ProviderUtils.notifyFormsProviderListener(context, appName, tableId);
+    return outcome;
+  }
 
    @Override public void deleteTableMetadata(String appName, DbHandle dbHandleName, String tableId,
        String partition, String aspect, String key) {
@@ -649,10 +682,10 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
   /**
    * SYNC Only. ADMIN Privileges!
    *
-   * @param appName
-   * @param dbHandleName
-   * @param tableId
-   * @param rowId
+   * @param appName the app name
+   * @param dbHandleName a database handle to use
+   * @param tableId the table to update
+   * @param rowId which row in the table to update
    * @return
      */
    @Override public BaseTable privilegedDeleteRowWithId(String appName, DbHandle dbHandleName,
@@ -1124,11 +1157,11 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
    /**
     * SYNC Only. ADMIN Privileges!
     *
-    * @param appName
-    * @param dbHandleName
-    * @param tableId
+    * @param appName the app name
+    * @param dbHandleName a database handle to use
+    * @param tableId the table to update
     * @param cvValues
-    * @param rowId
+    * @param rowId which row in the table to update
     * @param asCsvRequestedChange
     * @return
     */
@@ -1169,13 +1202,13 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
    /**
     * SYNC Only. ADMIN Privileges!
     *
-    * @param appName
-    * @param dbHandleName
-    * @param tableId
+    * @param appName the app name
+    * @param dbHandleName a database handle to use
+    * @param tableId the table to update
     * @param cvValues  server's field values for this row
-    * @param rowId
+    * @param rowId which row in the table to update
     *          expected to be one of ConflictType.LOCAL_DELETED_OLD_VALUES (0) or
-    * @return
+    * @return The updated row, in a table
     */
    @Override public BaseTable privilegedPerhapsPlaceRowIntoConflictWithId(String appName,
        DbHandle dbHandleName, String tableId, ContentValues cvValues,
@@ -1427,11 +1460,11 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
    /**
     * SYNC Only. ADMIN Privileges
     *
-    * @param appName
-    * @param dbHandleName
-    * @param tableId
-    * @param schemaETag
-    * @param lastDataETag
+    * @param appName the app name
+    * @param dbHandleName a database handle to use
+    * @param tableId the table to update
+    * @param schemaETag TODO what?
+    * @param lastDataETag TODO what?
     */
    @Override public void privilegedUpdateTableETags(String appName, DbHandle dbHandleName,
        String tableId, String schemaETag, String lastDataETag)
@@ -1458,9 +1491,9 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
    /**
     * SYNC Only. ADMIN Privileges
     *
-    * @param appName
-    * @param dbHandleName
-    * @param tableId
+    * @param appName the app name
+    * @param dbHandleName a database handle to use
+    * @param tableId the table to update
     */
    @Override public void privilegedUpdateTableLastSyncTime(String appName, DbHandle dbHandleName,
        String tableId) {
@@ -1633,11 +1666,11 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
    /**
     * SYNC Only. ADMIN Privileges!
     *
-    * @param appName
-    * @param dbHandleName
-    * @param tableId
-    * @param rowId
-    * @param rowETag
+    * @param appName the app name
+    * @param dbHandleName a database handle to use
+    * @param tableId the table to update
+    * @param rowId which row in the table to update
+    * @param rowETag The new etag for the row
     * @param syncState - the SyncState.name()
     */
    @Override public void privilegedUpdateRowETagAndSyncState(String appName, DbHandle dbHandleName,
@@ -1676,8 +1709,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
          // +1 referenceCount if db is returned (non-null)
          db = OdkConnectionFactorySingleton.getOdkConnectionFactoryInterface()
              .getConnection(appName, dbHandleName);
-         SyncETagsUtils seu = new SyncETagsUtils();
-         seu.deleteAppAndTableLevelManifestSyncETags(db);
+         SyncETagsUtils.deleteAppAndTableLevelManifestSyncETags(db);
       } finally {
          if (db != null) {
             // release the reference...
@@ -1697,8 +1729,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
          // +1 referenceCount if db is returned (non-null)
          db = OdkConnectionFactorySingleton.getOdkConnectionFactoryInterface()
              .getConnection(appName, dbHandleName);
-         SyncETagsUtils seu = new SyncETagsUtils();
-         seu.deleteAllSyncETagsForTableId(db, tableId);
+         SyncETagsUtils.deleteAllSyncETagsForTableId(db, tableId);
       } finally {
          if (db != null) {
             // release the reference...
@@ -1718,8 +1749,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
          // +1 referenceCount if db is returned (non-null)
          db = OdkConnectionFactorySingleton.getOdkConnectionFactoryInterface()
              .getConnection(appName, dbHandleName);
-         SyncETagsUtils seu = new SyncETagsUtils();
-         seu.deleteAllSyncETagsExceptForServer(db, verifiedUri);
+         SyncETagsUtils.deleteAllSyncETagsExceptForServer(db, verifiedUri);
       } finally {
          if (db != null) {
             // release the reference...
@@ -1739,8 +1769,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
          // +1 referenceCount if db is returned (non-null)
          db = OdkConnectionFactorySingleton.getOdkConnectionFactoryInterface()
              .getConnection(appName, dbHandleName);
-         SyncETagsUtils seu = new SyncETagsUtils();
-         seu.deleteAllSyncETagsUnderServer(db, verifiedUri);
+         SyncETagsUtils.deleteAllSyncETagsUnderServer(db, verifiedUri);
       } finally {
          if (db != null) {
             // release the reference...
@@ -1761,8 +1790,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
          // +1 referenceCount if db is returned (non-null)
          db = OdkConnectionFactorySingleton.getOdkConnectionFactoryInterface()
              .getConnection(appName, dbHandleName);
-         SyncETagsUtils seu = new SyncETagsUtils();
-         return seu.getFileSyncETag(db, verifiedUri, tableId, modificationTimestamp);
+         return SyncETagsUtils.getFileSyncETag(db, verifiedUri, tableId, modificationTimestamp);
       } finally {
          if (db != null) {
             // release the reference...
@@ -1782,8 +1810,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
          // +1 referenceCount if db is returned (non-null)
          db = OdkConnectionFactorySingleton.getOdkConnectionFactoryInterface()
              .getConnection(appName, dbHandleName);
-         SyncETagsUtils seu = new SyncETagsUtils();
-         return seu.getManifestSyncETag(db, verifiedUri, tableId);
+         return SyncETagsUtils.getManifestSyncETag(db, verifiedUri, tableId);
       } finally {
          if (db != null) {
             // release the reference...
@@ -1804,8 +1831,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
          // +1 referenceCount if db is returned (non-null)
          db = OdkConnectionFactorySingleton.getOdkConnectionFactoryInterface()
              .getConnection(appName, dbHandleName);
-         SyncETagsUtils seu = new SyncETagsUtils();
-         seu.updateFileSyncETag(db, verifiedUri, tableId, modificationTimestamp, eTag);
+         SyncETagsUtils.updateFileSyncETag(db, verifiedUri, tableId, modificationTimestamp, eTag);
       } finally {
          if (db != null) {
             // release the reference...
@@ -1825,8 +1851,7 @@ public class OdkDatabaseServiceImpl implements InternalUserDbInterface {
          // +1 referenceCount if db is returned (non-null)
          db = OdkConnectionFactorySingleton.getOdkConnectionFactoryInterface()
              .getConnection(appName, dbHandleName);
-         SyncETagsUtils seu = new SyncETagsUtils();
-         seu.updateManifestSyncETag(db, verifiedUri, tableId, eTag);
+         SyncETagsUtils.updateManifestSyncETag(db, verifiedUri, tableId, eTag);
       } finally {
          if (db != null) {
             // release the reference...
