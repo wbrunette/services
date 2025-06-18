@@ -93,7 +93,7 @@ public class SubmissionProvider extends ContentProvider {
   private static final String ISO8601_DATE_ONLY_FORMAT = "yyyy-MM-dd";
   private static final String ISO8601_DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ssZ";
 
-  private static final String t = "SubmissionProvider";
+  private static final String providerID = "SubmissionProvider";
 
   private static final String XML_OPENROSA_NAMESPACE = "http://openrosa.org/xforms";
   // // any
@@ -115,21 +115,7 @@ public class SubmissionProvider extends ContentProvider {
   public boolean onCreate() {
 
     // IMPORTANT NOTE: the Application object is not yet created!
-    try {
-      ODKFileUtils.verifyExternalStorageAvailability();
-      File f = new File(ODKFileUtils.getOdkFolder());
-      if (!f.exists()) {
-        f.mkdir();
-      } else if (!f.isDirectory()) {
-        Log.e(t, f.getAbsolutePath() + " is not a directory!");
-        return false;
-      }
-    } catch (Exception e) {
-      Log.e(t, "External storage not available");
-      return false;
-    }
-
-    return true;
+    return ODKFileUtils.verifyOdkFolderExists(providerID);
   }
 
   @SuppressWarnings("unchecked")
@@ -163,7 +149,7 @@ public class SubmissionProvider extends ContentProvider {
     Element e = d.createElement(key);
 
     if (o == null) {
-      logger.e(t, "Unexpected null value");
+      logger.e(providerID, "Unexpected null value");
     } else if (o instanceof Integer) {
       Text txtNode = d.createTextNode(((Integer) o).toString());
       e.appendChild(txtNode);
@@ -383,7 +369,7 @@ public class SubmissionProvider extends ContentProvider {
                 ElementType type = defn.getType();
                 ElementDataType dataType = type.getDataType();
 
-                logger.i(t, "element type: " + defn.getElementType());
+                logger.i(providerID, "element type: " + defn.getElementType());
                 if (dataType == ElementDataType.integer) {
                   Long value = CursorUtils.getIndexAsType(c, Long.class, i);
                   putElementValue(values, defn, value);
@@ -860,7 +846,7 @@ public class SubmissionProvider extends ContentProvider {
       return true;
 
     } catch (IOException e) {
-      logger.e(t, "Error writing file");
+      logger.e(providerID, "Error writing file");
       logger.printStackTrace(e);
       try {
         osw.close();

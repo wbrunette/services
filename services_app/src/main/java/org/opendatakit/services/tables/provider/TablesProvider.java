@@ -48,7 +48,7 @@ import java.util.List;
  *  _last_sync_time == time of the last completed sync
  */
 public class TablesProvider extends ContentProvider {
-  private static final String t = "TablesProvider";
+  private static final String providerID = "TablesProvider";
 
   /**
    * change to true expression if you want to debug this content provider
@@ -84,21 +84,7 @@ public class TablesProvider extends ContentProvider {
     // IMPORTANT NOTE: the Application object is not yet created!
     AndroidConnectFactory.configure();
 
-    try {
-      ODKFileUtils.verifyExternalStorageAvailability();
-      File f = new File(ODKFileUtils.getOdkFolder());
-      if (!f.exists()) {
-        f.mkdir();
-      } else if (!f.isDirectory()) {
-        Log.e(t, f.getAbsolutePath() + " is not a directory!");
-        return false;
-      }
-    } catch (Exception e) {
-      Log.e(t, "External storage not available");
-      return false;
-    }
-
-    return true;
+    return ODKFileUtils.verifyOdkFolderExists(providerID);
   }
 
   @Override
@@ -153,7 +139,7 @@ public class TablesProvider extends ContentProvider {
           null, null, sortOrder, null);
 
       if (c == null) {
-        logger.w(t, "Unable to query database for appName: " + appName);
+        logger.w(providerID, "Unable to query database for appName: " + appName);
         return null;
       }
       // Tell the cursor what uri to watch, so it knows when its source data changes
@@ -162,7 +148,7 @@ public class TablesProvider extends ContentProvider {
       success = true;
       return c;
     } catch (Exception e) {
-      logger.w(t, "Exception while querying database for appName: " + appName);
+      logger.w(providerID, "Exception while querying database for appName: " + appName);
       logger.printStackTrace(e);
       return null;
     } finally {

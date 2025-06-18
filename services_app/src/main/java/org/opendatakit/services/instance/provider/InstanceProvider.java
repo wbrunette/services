@@ -57,7 +57,7 @@ import java.util.Map;
 
 public class InstanceProvider extends ContentProvider {
 
-  private static final String t = "InstanceProvider";
+  private static final String providerID = "InstanceProvider";
 
   /**
    * change to true expression if you want to debug this content provider
@@ -116,21 +116,7 @@ public class InstanceProvider extends ContentProvider {
     // Used to ensure that the singleton has been initialized properly
     AndroidConnectFactory.configure();
 
-    try {
-      ODKFileUtils.verifyExternalStorageAvailability();
-      File f = new File(ODKFileUtils.getOdkFolder());
-      if (!f.exists()) {
-        f.mkdir();
-      } else if (!f.isDirectory()) {
-        Log.e(t, f.getAbsolutePath() + " is not a directory!");
-        return false;
-      }
-    } catch (Exception e) {
-      Log.e(t, "External storage not available");
-      return false;
-    }
-
-    return true;
+    return ODKFileUtils.verifyOdkFolderExists(providerID);
   }
 
   @Override
@@ -193,13 +179,13 @@ public class InstanceProvider extends ContentProvider {
   }
 
   /**
-   * Update the status columns for the instance upload table
-   *
-   * @param db
-   * @param uri
-   * @param appName
-   * @param tableId
-   */
+     * Update the status columns for the instance upload table
+     *
+     * @param db
+     * @param uri
+     * @param appName
+     * @param tableId
+     */
   void internalUpdate(OdkConnectionInterface db,
       Uri uri,
       String appName, String tableId ) {
