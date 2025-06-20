@@ -54,7 +54,7 @@ import java.util.List;
  * forms within the ODK toolsuite.
  */
 public class FormsProvider extends ContentProvider {
-  static final String LOGTAG = "FormsProvider";
+  static final String LOGTAG = FormsProvider.class.getSimpleName();;
 
   /**
    * change to true expression if you want to debug this content provider

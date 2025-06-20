@@ -92,7 +92,7 @@ public class SubmissionProvider extends ContentProvider {
   private static final String ISO8601_DATE_ONLY_FORMAT = "yyyy-MM-dd";
   private static final String ISO8601_DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ssZ";
 
-  private static final String LOGTAG = "SubmissionProvider";
+  private static final String LOGTAG = SubmissionProvider.class.getSimpleName();;
 
   private static final String XML_OPENROSA_NAMESPACE = "http://openrosa.org/xforms";
   // // any

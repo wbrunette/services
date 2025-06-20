@@ -46,7 +46,7 @@ import java.util.List;
  *  _last_sync_time == time of the last completed sync
  */
 public class TablesProvider extends ContentProvider {
-  private static final String LOGTAG = "TablesProvider";
+  private static final String LOGTAG = TablesProvider.class.getSimpleName();
 
   /**
    * change to true expression if you want to debug this content provider

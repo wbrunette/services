@@ -56,7 +56,7 @@ import java.util.Map;
 
 public class InstanceProvider extends ContentProvider {
 
-  private static final String LOGTAG = "InstanceProvider";
+  private static final String LOGTAG = InstanceProvider.class.getSimpleName();;
 
   /**
    * change to true expression if you want to debug this content provider
