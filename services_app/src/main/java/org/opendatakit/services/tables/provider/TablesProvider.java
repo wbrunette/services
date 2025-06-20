@@ -21,6 +21,7 @@ import android.database.Cursor;
 import android.database.DataSetObserver;
 import android.net.Uri;
 import android.text.TextUtils;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -79,10 +80,15 @@ public class TablesProvider extends ContentProvider {
   @Override
   public boolean onCreate() {
 
-    // IMPORTANT NOTE: the Application object is not yet created!
     AndroidConnectFactory.configure();
 
-    return ODKFileUtils.verifyOdkFolderExists(LOGTAG);
+    boolean isOdkFolder = false;
+    try{
+      isOdkFolder = ODKFileUtils.verifyOdkFolderExists();
+    } catch (Exception e){
+      Log.e(LOGTAG, e.getMessage());
+    }
+    return isOdkFolder;
   }
 
   @Override

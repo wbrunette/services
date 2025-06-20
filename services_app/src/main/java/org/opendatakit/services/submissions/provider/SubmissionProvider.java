@@ -20,6 +20,7 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -113,8 +114,13 @@ public class SubmissionProvider extends ContentProvider {
   @Override
   public boolean onCreate() {
 
-    // IMPORTANT NOTE: the Application object is not yet created!
-    return ODKFileUtils.verifyOdkFolderExists(LOGTAG);
+    boolean isOdkFolder = false;
+    try{
+      isOdkFolder = ODKFileUtils.verifyOdkFolderExists();
+    } catch (Exception e){
+      Log.e(LOGTAG, e.getMessage());
+    }
+    return isOdkFolder;
   }
 
   @SuppressWarnings("unchecked")
