@@ -21,7 +21,6 @@ import android.database.Cursor;
 import android.database.DataSetObserver;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -35,7 +34,6 @@ import org.opendatakit.services.database.OdkConnectionFactorySingleton;
 import org.opendatakit.services.database.OdkConnectionInterface;
 import org.opendatakit.utilities.ODKFileUtils;
 
-import java.io.File;
 import java.util.List;
 
 /**
@@ -48,7 +46,7 @@ import java.util.List;
  *  _last_sync_time == time of the last completed sync
  */
 public class TablesProvider extends ContentProvider {
-  private static final String providerID = "TablesProvider";
+  private static final String LOGTAG = "TablesProvider";
 
   /**
    * change to true expression if you want to debug this content provider
@@ -84,7 +82,7 @@ public class TablesProvider extends ContentProvider {
     // IMPORTANT NOTE: the Application object is not yet created!
     AndroidConnectFactory.configure();
 
-    return ODKFileUtils.verifyOdkFolderExists(providerID);
+    return ODKFileUtils.verifyOdkFolderExists(LOGTAG);
   }
 
   @Override
@@ -139,7 +137,7 @@ public class TablesProvider extends ContentProvider {
           null, null, sortOrder, null);
 
       if (c == null) {
-        logger.w(providerID, "Unable to query database for appName: " + appName);
+        logger.w(LOGTAG, "Unable to query database for appName: " + appName);
         return null;
       }
       // Tell the cursor what uri to watch, so it knows when its source data changes
@@ -148,7 +146,7 @@ public class TablesProvider extends ContentProvider {
       success = true;
       return c;
     } catch (Exception e) {
-      logger.w(providerID, "Exception while querying database for appName: " + appName);
+      logger.w(LOGTAG, "Exception while querying database for appName: " + appName);
       logger.printStackTrace(e);
       return null;
     } finally {

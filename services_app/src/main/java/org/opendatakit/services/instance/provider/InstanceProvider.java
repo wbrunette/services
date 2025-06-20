@@ -21,7 +21,6 @@ import android.database.Cursor;
 import android.database.DataSetObserver;
 import android.database.SQLException;
 import android.net.Uri;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -57,7 +56,7 @@ import java.util.Map;
 
 public class InstanceProvider extends ContentProvider {
 
-  private static final String providerID = "InstanceProvider";
+  private static final String LOGTAG = "InstanceProvider";
 
   /**
    * change to true expression if you want to debug this content provider
@@ -116,7 +115,7 @@ public class InstanceProvider extends ContentProvider {
     // Used to ensure that the singleton has been initialized properly
     AndroidConnectFactory.configure();
 
-    return ODKFileUtils.verifyOdkFolderExists(providerID);
+    return ODKFileUtils.verifyOdkFolderExists(LOGTAG);
   }
 
   @Override

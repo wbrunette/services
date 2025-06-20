@@ -23,7 +23,6 @@ import android.database.Cursor;
 import android.database.DataSetObserver;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -40,7 +39,6 @@ import org.opendatakit.services.database.OdkConnectionInterface;
 import org.opendatakit.services.database.utilities.ODKDatabaseImplUtils;
 import org.opendatakit.utilities.ODKFileUtils;
 
-import java.io.File;
 import java.util.List;
 
 /**
@@ -56,7 +54,7 @@ import java.util.List;
  * forms within the ODK toolsuite.
  */
 public class FormsProvider extends ContentProvider {
-  static final String providerID = "FormsProvider";
+  static final String LOGTAG = "FormsProvider";
 
   /**
    * change to true expression if you want to debug this content provider
@@ -76,7 +74,7 @@ public class FormsProvider extends ContentProvider {
     // Used to ensure that the singleton has been initialized properly
     AndroidConnectFactory.configure();
 
-    return ODKFileUtils.verifyOdkFolderExists(providerID);
+    return ODKFileUtils.verifyOdkFolderExists(LOGTAG);
   }
 
   private boolean isNumeric(final CharSequence charSequence) {
@@ -262,7 +260,7 @@ public class FormsProvider extends ContentProvider {
           null, null, sortOrder, null);
 
       if (c == null) {
-        log.w(providerID, "Unable to query database");
+        log.w(LOGTAG, "Unable to query database");
         return null;
       }
       // Tell the cursor what uri to watch, so it knows when its source data changes
@@ -273,7 +271,7 @@ public class FormsProvider extends ContentProvider {
       success = true;
       return c;
     } catch (Exception e) {
-      log.w(providerID, "Exception while querying database");
+      log.w(LOGTAG, "Exception while querying database");
       log.printStackTrace(e);
       return null;
     } finally {
